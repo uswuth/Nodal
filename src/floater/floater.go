@@ -424,7 +424,12 @@ func (f *Floater) handleMouseMove(pt winapi.POINT) {
 	tme.HwndTrack = f.hwnd
 	winapi.TrackMouse(&tme)
 
-	w, _ := f.calculateDimensions()
+	var rcClient winapi.RECT
+	winapi.GetClientRect(f.hwnd, &rcClient)
+	w := rcClient.Width()
+	if w <= 0 {
+		w, _ = f.calculateDimensions()
+	}
 	scale := func(v int32) int32 { return winapi.ScaleDpi(v, f.dpi) }
 
 	headerH := scale(42)
@@ -598,8 +603,8 @@ func (f *Floater) paint(hdc windows.Handle) {
 	var (
 		borderCol uint32 = 0x383838
 		textMain  uint32 = 0xFFFFFF
-		textSub   uint32 = 0x9E9E9E
-		hoverPill uint32 = 0x333333
+		textSub   uint32 = 0x8C8C8C
+		hoverPill uint32 = 0x262626
 		accentRGB uint32 = uint32(f.accentR) | (uint32(f.accentG) << 8) | (uint32(f.accentB) << 16)
 	)
 
@@ -607,11 +612,10 @@ func (f *Floater) paint(hdc windows.Handle) {
 		borderCol = 0xE5E5E5
 		textMain = 0x1A1A1A
 		textSub = 0x666666
-		hoverPill = 0xEAEAEA
+		hoverPill = 0xECECEC
 	}
 
-	// Derive the active-row tinted fill from the live accent (18% alpha blend over bg).
-	// Single source of truth — same accent that drives the dot and border.
+	// Single source of truth for accent blends
 	blendChan := func(fg, bg uint8, alpha float64) uint8 {
 		return uint8(float64(fg)*alpha + float64(bg)*(1-alpha))
 	}
@@ -621,11 +625,9 @@ func (f *Floater) paint(hdc windows.Handle) {
 	} else {
 		bgR, bgG, bgB = 0xF9, 0xF9, 0xF9
 	}
-	blendedR := blendChan(f.accentR, bgR, 0.18)
-	blendedG := blendChan(f.accentG, bgG, 0.18)
-	blendedB := blendChan(f.accentB, bgB, 0.18)
-	// GDI COLORREF is 0x00BBGGRR
-	activePillFill := uint32(blendedR) | (uint32(blendedG) << 8) | (uint32(blendedB) << 16)
+	// Subtle 14% accent fill & delicate 32% border for active state
+	activePillFill := uint32(blendChan(f.accentR, bgR, 0.14)) | (uint32(blendChan(f.accentG, bgG, 0.14)) << 8) | (uint32(blendChan(f.accentB, bgB, 0.14)) << 16)
+	activePillBorder := uint32(blendChan(f.accentR, bgR, 0.32)) | (uint32(blendChan(f.accentG, bgG, 0.32)) << 8) | (uint32(blendChan(f.accentB, bgB, 0.32)) << 16)
 
 	winapi.SetBkMode(dc, winapi.TRANSPARENT)
 
@@ -634,17 +636,20 @@ func (f *Floater) paint(hdc windows.Handle) {
 	// Typography setup (ClearType Natural Antialiasing, Segoe UI Variable / Segoe UI)
 	const cleartypeNatural = 6
 
-	fontTitle := winapi.CreateFont(-scale(14), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
+	fontTitle := winapi.CreateFont(-scale(13), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
 	defer winapi.DeleteObject(fontTitle)
 
-	fontBold := winapi.CreateFont(-scale(13), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
+	fontBold := winapi.CreateFont(-scale(12), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
 	defer winapi.DeleteObject(fontBold)
 
-	fontRegular := winapi.CreateFont(-scale(13), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
+	fontRegular := winapi.CreateFont(-scale(12), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
 	defer winapi.DeleteObject(fontRegular)
 
-	fontSmall := winapi.CreateFont(-scale(11), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
+	fontSmall := winapi.CreateFont(-scale(10), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
 	defer winapi.DeleteObject(fontSmall)
+
+	fontTag := winapi.CreateFont(-scale(9), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
+	defer winapi.DeleteObject(fontTag)
 
 	sidePad := scale(12)
 
@@ -803,14 +808,14 @@ func (f *Floater) paint(hdc windows.Handle) {
 			// Row Pill Background
 			if isActive {
 				rgn := winapi.CreateRoundRectRgn(rowRect.Left, rowRect.Top, rowRect.Right, rowRect.Bottom, scale(6), scale(6))
-				// Tinted fill — derived from live accent
 				hbrActiveFill := winapi.CreateSolidBrush(activePillFill)
 				winapi.FillRgn(dc, rgn, hbrActiveFill)
 				winapi.DeleteObject(hbrActiveFill)
-				// 1px accent-colored border
-				hbrActive := winapi.CreateSolidBrush(accentRGB)
-				winapi.FrameRgn(dc, rgn, hbrActive, 1, 1)
-				winapi.DeleteObject(hbrActive)
+
+				// Delicate, subtle accent border
+				hbrActiveBorder := winapi.CreateSolidBrush(activePillBorder)
+				winapi.FrameRgn(dc, rgn, hbrActiveBorder, 1, 1)
+				winapi.DeleteObject(hbrActiveBorder)
 				winapi.DeleteObject(rgn)
 
 				// Windows 11 left vertical pill accent bar
@@ -831,6 +836,66 @@ func (f *Floater) paint(hdc windows.Handle) {
 				winapi.DeleteObject(rgn)
 			}
 
+			// Right-aligned Tag Badge (Clean, minimal, non-distracting chip)
+			maxTextRight := rowRect.Right - scale(12)
+			if p.Tag != "" {
+				winapi.SelectObject(dc, fontTag)
+				tagCalcRect := winapi.RECT{Left: 0, Top: 0, Right: w, Bottom: scale(20)}
+				winapi.DrawText(dc, p.Tag, &tagCalcRect, 0x0420) // DT_CALCRECT | DT_SINGLELINE
+				tagTextW := tagCalcRect.Right - tagCalcRect.Left
+
+				badgeH := scale(18)
+				badgeW := tagTextW + scale(12)
+				badgeRight := rowRect.Right - scale(10)
+				badgeLeft := badgeRight - badgeW
+				badgeTop := rowRect.Top + (rowRect.Height()-badgeH)/2
+				badgeBottom := badgeTop + badgeH
+				badgeRect := winapi.RECT{Left: badgeLeft, Top: badgeTop, Right: badgeRight, Bottom: badgeBottom}
+
+				badgeRgn := winapi.CreateRoundRectRgn(badgeLeft, badgeTop, badgeRight, badgeBottom, scale(4), scale(4))
+
+				var (
+					tagBgCol     uint32 = 0x222222
+					tagBorderCol uint32 = 0x363636
+					tagTextCol   uint32 = 0x888888
+				)
+				if !f.isDark {
+					tagBgCol = 0xEEEEEE
+					tagBorderCol = 0xD8D8D8
+					tagTextCol = 0x666666
+				}
+
+				if isActive {
+					tagBgCol = activePillFill
+					tagBorderCol = activePillBorder
+					tagTextCol = accentRGB
+				} else if isHovered {
+					tagBgCol = 0x2C2C2C
+					tagBorderCol = 0x444444
+					tagTextCol = 0xC0C0C0
+					if !f.isDark {
+						tagBgCol = 0xE4E4E4
+						tagBorderCol = 0xCCCCCC
+						tagTextCol = 0x333333
+					}
+				}
+
+				hbrTagBg := winapi.CreateSolidBrush(tagBgCol)
+				winapi.FillRgn(dc, badgeRgn, hbrTagBg)
+				winapi.DeleteObject(hbrTagBg)
+
+				hbrTagBorder := winapi.CreateSolidBrush(tagBorderCol)
+				winapi.FrameRgn(dc, badgeRgn, hbrTagBorder, 1, 1)
+				winapi.DeleteObject(hbrTagBorder)
+				winapi.DeleteObject(badgeRgn)
+
+				winapi.SelectObject(dc, fontTag)
+				winapi.SetTextColor(dc, tagTextCol)
+				winapi.DrawText(dc, p.Tag, &badgeRect, 0x0001|0x0024) // DT_CENTER | DT_VCENTER | DT_SINGLELINE
+
+				maxTextRight = badgeLeft - scale(8)
+			}
+
 			// Text: Profile Name
 			textX := rowRect.Left + scale(15)
 			if isActive {
@@ -846,7 +911,7 @@ func (f *Floater) paint(hdc windows.Handle) {
 				nameRect := winapi.RECT{
 					Left:   textX,
 					Top:    rowRect.Top,
-					Right:  rowRect.Right - scale(10),
+					Right:  maxTextRight,
 					Bottom: rowRect.Bottom,
 				}
 				winapi.DrawText(dc, p.Name, &nameRect, 0x0024) // DT_VCENTER | DT_SINGLELINE
@@ -854,7 +919,7 @@ func (f *Floater) paint(hdc windows.Handle) {
 				nameRect := winapi.RECT{
 					Left:   textX,
 					Top:    rowRect.Top + scale(6),
-					Right:  rowRect.Right - scale(10),
+					Right:  maxTextRight,
 					Bottom: rowRect.Top + scale(24),
 				}
 				winapi.DrawText(dc, p.Name, &nameRect, 0x0000)
@@ -884,7 +949,7 @@ func (f *Floater) paint(hdc windows.Handle) {
 				ipRect := winapi.RECT{
 					Left:   textX,
 					Top:    rowRect.Top + scale(24),
-					Right:  rowRect.Right - scale(10),
+					Right:  maxTextRight,
 					Bottom: rowRect.Bottom - scale(4),
 				}
 				winapi.DrawText(dc, ipLabel, &ipRect, 0x0000)

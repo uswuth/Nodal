@@ -77,6 +77,10 @@ func main() {
 		_ = autostart.Sync(cfg.Autostart)
 	}
 
+	// Opt the process into Per-Monitor DPI Awareness v2 so all windows
+	// render 1:1 crisp and scaled correctly on high-DPI displays.
+	winapi.EnableDpiAwareness()
+
 	// Opt the process into dark-mode awareness so native controls (menus,
 	// scrollbars, etc.) follow the system theme dynamically.
 	// AllowDark = 1; must be called before any HWND is created.

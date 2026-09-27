@@ -551,6 +551,31 @@ func DestroyMenu(hMenu windows.Handle) bool {
 
 // DPI & Metrics
 
+// EnableDpiAwareness opts the process into Per-Monitor DPI Awareness V2
+func EnableDpiAwareness() {
+	procSetProcessDpiAwarenessContext := user32.NewProc("SetProcessDpiAwarenessContext")
+	if procSetProcessDpiAwarenessContext.Find() == nil {
+		// DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
+		const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = ^uintptr(3)
+		r1, _, _ := procSetProcessDpiAwarenessContext.Call(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
+		if r1 != 0 {
+			return
+		}
+	}
+	shcore := windows.NewLazyDLL("shcore.dll")
+	if procSetProcessDpiAwareness := shcore.NewProc("SetProcessDpiAwareness"); procSetProcessDpiAwareness.Find() == nil {
+		// PROCESS_PER_MONITOR_DPI_AWARE = 2
+		r1, _, _ := procSetProcessDpiAwareness.Call(2)
+		if r1 == 0 {
+			return
+		}
+	}
+	procSetProcessDPIAware := user32.NewProc("SetProcessDPIAware")
+	if procSetProcessDPIAware.Find() == nil {
+		_, _, _ = procSetProcessDPIAware.Call()
+	}
+}
+
 func GetDpiForHwnd(hwnd windows.HWND) uint32 {
 	if procGetDpiForWindow.Find() == nil {
 		r1, _, _ := procGetDpiForWindow.Call(uintptr(hwnd))
@@ -655,7 +680,8 @@ func DwmGetColorizationColor(color *uint32, opaqueBlend *int32) uintptr {
 	return r1
 }
 
-// GetAppsUseLightTheme checks Windows 11 / 10 theme setting in HKCU
+// GetAppsUseLightTheme checks Windows 11 / 10 theme setting in HKCU.
+// For taskbar/tray flyouts, SystemUsesLightTheme takes priority.
 func GetAppsUseLightTheme() bool {
 	k, err := registry.OpenKey(
 		registry.CURRENT_USER,
@@ -667,11 +693,13 @@ func GetAppsUseLightTheme() bool {
 	}
 	defer k.Close()
 
-	val, _, err := k.GetIntegerValue("AppsUseLightTheme")
-	if err != nil {
-		return false
+	if val, _, err := k.GetIntegerValue("SystemUsesLightTheme"); err == nil {
+		return val != 0
 	}
-	return val != 0
+	if val, _, err := k.GetIntegerValue("AppsUseLightTheme"); err == nil {
+		return val != 0
+	}
+	return false
 }
 
 // GetLiveAccentColor retrieves the user's manual Windows accent color from registry,

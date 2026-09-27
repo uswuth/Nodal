@@ -168,6 +168,7 @@ const (
 	WM_KILLFOCUS        = 0x0008
 	WM_PAINT            = 0x000F
 	WM_CLOSE            = 0x0010
+	WM_ERASEBKGND       = 0x0014
 	WM_SETTINGCHANGE    = 0x001A
 	WM_CONTEXTMENU      = 0x007B
 	WM_COMMAND          = 0x0111

@@ -15,10 +15,6 @@ import (
 
 const (
 	className = "NodalMenuFlyoutWindow"
-
-	// WM_ERASEBKGND is defined locally (0x0014) because winapi
-	// currently does not export it.
-	wmEraseBkgnd = 0x0014
 )
 
 type MenuItemType int
@@ -348,7 +344,7 @@ func (m *MenuFlyout) handleMessage(hwnd windows.HWND, msg uint32, wParam, lParam
 		winapi.InvalidateRect(m.hwnd, nil, true)
 		return 0
 
-	case wmEraseBkgnd:
+	case winapi.WM_ERASEBKGND:
 		return 1
 
 	case winapi.WM_PAINT:

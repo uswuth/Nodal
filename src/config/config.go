@@ -22,6 +22,7 @@ const (
 
 type DNSProfile struct {
 	Name        string `toml:"name" json:"name"`
+	Tag         string `toml:"tag,omitempty" json:"tag,omitempty"`
 	Primary     string `toml:"primary" json:"primary"`
 	Secondary   string `toml:"secondary,omitempty" json:"secondary,omitempty"`
 	PrimaryV6   string `toml:"primary_v6,omitempty" json:"primary_v6,omitempty"`
@@ -109,6 +110,10 @@ const schemaJSON = `{
             "type": "string",
             "description": "Display name of the DNS profile (e.g. 'Cloudflare', 'Work DNS')"
           },
+          "tag": {
+            "type": "string",
+            "description": "Short category or capability badge (e.g. 'Auto', 'Speed', 'AdBlock', 'Secure')"
+          },
           "primary": {
             "type": "string",
             "description": "Primary IPv4 address (leave empty for DHCP)",
@@ -150,16 +155,19 @@ func DefaultConfig() *Config {
 		Profiles: []DNSProfile{
 			{
 				Name:      "DHCP",
+				Tag:       "Auto",
 				Primary:   "",
 				Secondary: "",
 			},
 			{
 				Name:      "Cloudflare",
+				Tag:       "Speed",
 				Primary:   "1.1.1.1",
 				Secondary: "1.0.0.1",
 			},
 			{
 				Name:      "AdGuard DNS",
+				Tag:       "AdBlock",
 				Primary:   "94.140.14.14",
 				Secondary: "94.140.15.15",
 			},
@@ -309,6 +317,9 @@ func saveConfigFileInternal(path string, cfg *Config) error {
 	for _, p := range cfg.Profiles[:limit] {
 		buf.WriteString("\n[[dns]]\n")
 		buf.WriteString(fmt.Sprintf("name = %q\n", p.Name))
+		if p.Tag != "" {
+			buf.WriteString(fmt.Sprintf("tag = %q\n", p.Tag))
+		}
 		buf.WriteString(fmt.Sprintf("primary = %q\n", p.Primary))
 		if p.Secondary != "" || p.Primary != "" {
 			buf.WriteString(fmt.Sprintf("secondary = %q\n", p.Secondary))
