@@ -8,6 +8,7 @@ import (
 	"time"
 	"unsafe"
 
+	"nodal/src/config"
 	"nodal/src/winapi"
 
 	"golang.org/x/sys/windows"
@@ -158,7 +159,17 @@ func (m *MenuFlyout) createWindow() error {
 }
 
 func (m *MenuFlyout) updateTheme() {
-	m.isDark = !winapi.GetAppsUseLightTheme()
+	themeSetting := "auto"
+	if cfg, err := config.LoadConfig(); err == nil && cfg != nil {
+		themeSetting = cfg.EffectiveTheme()
+	}
+	if themeSetting == "dark" {
+		m.isDark = true
+	} else if themeSetting == "light" {
+		m.isDark = false
+	} else {
+		m.isDark = !winapi.GetAppsUseLightTheme()
+	}
 	winapi.ApplyWindows11Styling(m.hwnd, m.isDark)
 }
 
@@ -455,7 +466,16 @@ func (m *MenuFlyout) paint(hdc windows.Handle) {
 	memDC := winapi.CreateCompatibleDC(hdc)
 	defer winapi.DeleteDC(memDC)
 
-	memBmp := winapi.CreateCompatibleBitmap(hdc, w, h)
+	var bmi winapi.BITMAPINFO
+	bmi.BmiHeader.BiSize = uint32(unsafe.Sizeof(bmi.BmiHeader))
+	bmi.BmiHeader.BiWidth = w
+	bmi.BmiHeader.BiHeight = -h // Negative height creates top-down DIB
+	bmi.BmiHeader.BiPlanes = 1
+	bmi.BmiHeader.BiBitCount = 32
+	bmi.BmiHeader.BiCompression = winapi.BI_RGB
+
+	var pBits *byte
+	memBmp := winapi.CreateDIBSection(hdc, &bmi, winapi.DIB_RGB_COLORS, &pBits, 0, 0)
 	defer winapi.DeleteObject(memBmp)
 
 	oldBmp := winapi.SelectObject(memDC, memBmp)
@@ -470,16 +490,28 @@ func (m *MenuFlyout) paint(hdc windows.Handle) {
 	)
 
 	if !m.isDark {
-		textMain = 0x1A1A1A
-		hoverPill = 0xEAEAEA
-		sepCol = 0xEAEAEA
+		textMain = 0x1C1C1C // Deep authoritative Windows 11 charcoal (#1C1C1C)
+		hoverPill = 0xEFEFEF
+		sepCol = 0xE8E7E6
 	}
 
-	// 1. Frosted glass window background (0x000000 lets DWM Acrylic blur & noise show through)
+	// 1. Frosted glass window background
+	var bgCol uint32 = 0x00000000
+	if !m.isDark {
+		bgCol = 0x00FCFCFC // Clean luminous Fluent surface for right-click flyout
+	}
 	bgRect := winapi.RECT{Left: 0, Top: 0, Right: w, Bottom: h}
-	hbrBg := winapi.CreateSolidBrush(0x000000)
+	hbrBg := winapi.CreateSolidBrush(bgCol)
 	winapi.FillRect(memDC, &bgRect, hbrBg)
 	winapi.DeleteObject(hbrBg)
+
+	if !m.isDark {
+		rgn := winapi.CreateRoundRectRgn(0, 0, w, h, scale(8), scale(8))
+		hbrBorder := winapi.CreateSolidBrush(0x00DCDADA)
+		winapi.FrameRgn(memDC, rgn, hbrBorder, 1, 1)
+		winapi.DeleteObject(hbrBorder)
+		winapi.DeleteObject(rgn)
+	}
 
 	// 2. Fonts
 	fontHandle := createMenuFont("Segoe UI Variable Text", 10, false, m.dpi)
@@ -568,20 +600,52 @@ func (m *MenuFlyout) paint(hdc windows.Handle) {
 		currY += itemH
 	}
 
+	if pBits != nil && w > 0 && h > 0 {
+		pixelSlice := unsafe.Slice((*uint32)(unsafe.Pointer(pBits)), int(w*h))
+		if !m.isDark {
+			for i := 0; i < len(pixelSlice); i++ {
+				pixelSlice[i] |= 0xFF000000
+			}
+		} else {
+			for i := 0; i < len(pixelSlice); i++ {
+				pix := pixelSlice[i]
+				rgb := pix & 0x00FFFFFF
+				if rgb == 0 {
+					continue
+				}
+				b := pix & 0xFF
+				g := (pix >> 8) & 0xFF
+				r := (pix >> 16) & 0xFF
+				maxC := r
+				if g > maxC {
+					maxC = g
+				}
+				if b > maxC {
+					maxC = b
+				}
+				a := maxC
+				if a > 255 {
+					a = 255
+				}
+				pixelSlice[i] = (a << 24) | rgb
+			}
+		}
+	}
+
 	winapi.BitBlt(hdc, 0, 0, w, h, memDC, 0, 0, winapi.SRCCOPY)
 }
 
 func createMenuFont(face string, ptSize int32, bold bool, dpi uint32) windows.Handle {
 	height := -int32(float64(ptSize) * float64(dpi) / 72.0)
-	weight := int32(400)
+	weight := int32(450)
 	if bold {
 		weight = 700
 	}
-	const CLEARTYPE_NATURAL_QUALITY = 6
+	const fontQuality = 4 // ANTIALIASED_QUALITY
 	return winapi.CreateFont(
 		height, 0, 0, 0, weight,
 		0, 0, 0, 1, 0, 0,
-		CLEARTYPE_NATURAL_QUALITY,
+		fontQuality,
 		0, face,
 	)
 }

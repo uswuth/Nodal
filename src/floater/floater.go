@@ -22,6 +22,65 @@ const (
 	className = "NodalFlyoutWindow"
 )
 
+type ThemePalette struct {
+	TextMain         uint32
+	TextSub          uint32
+	Border           uint32
+	HoverPill        uint32
+	ActivePillFill   uint32
+	ActivePillBorder uint32
+	TagBg            uint32
+	TagBorder        uint32
+	TagText          uint32
+	TagHoverBg       uint32
+	TagHoverBorder   uint32
+	TagHoverText     uint32
+	InfoBarBg        uint32
+	InfoBarText      uint32
+}
+
+func getThemePalette(isDark bool, accentR, accentG, accentB uint8) ThemePalette {
+	blendChan := func(fg, bg uint8, alpha float64) uint8 {
+		return uint8(float64(fg)*alpha + float64(bg)*(1-alpha))
+	}
+
+	if isDark {
+		return ThemePalette{
+			TextMain:         0x00FFFFFF,
+			TextSub:          0x008C8C8C,
+			Border:           0x00383838,
+			HoverPill:        0x00262626,
+			ActivePillFill:   uint32(blendChan(accentR, 0x20, 0.14)) | (uint32(blendChan(accentG, 0x20, 0.14)) << 8) | (uint32(blendChan(accentB, 0x20, 0.14)) << 16),
+			ActivePillBorder: uint32(blendChan(accentR, 0x20, 0.32)) | (uint32(blendChan(accentG, 0x20, 0.32)) << 8) | (uint32(blendChan(accentB, 0x20, 0.32)) << 16),
+			TagBg:            0x00222222,
+			TagBorder:        0x00363636,
+			TagText:          0x00888888,
+			TagHoverBg:       0x002C2C2C,
+			TagHoverBorder:   0x00444444,
+			TagHoverText:     0x00C0C0C0,
+			InfoBarBg:        0x0018222A,
+			InfoBarText:      0x0048A9F7,
+		}
+	}
+
+	return ThemePalette{
+		TextMain:         0x001C1C1C, // Deep authoritative Windows 11 charcoal (#1C1C1C) — high contrast
+		TextSub:          0x00525252, // Medium dark slate (#525252) — high contrast, never washed out
+		Border:           0x00E0DEDC, // Crisp hairline divider/card border
+		HoverPill:        0x00EFEFEF, // Clean, smooth hover pill
+		ActivePillFill:   0x00FFFFFF, // Crisp white elevated card for selected DNS
+		ActivePillBorder: 0x00DCDCDC, // Clean card outline
+		TagBg:            0x00F3F2F1, // Clean airy badge pill
+		TagBorder:        0x00DCDAD8, // Hairline badge border
+		TagText:          0x00383634, // High-contrast readable badge text
+		TagHoverBg:       0x00E6E5E4,
+		TagHoverBorder:   0x00CAC8C6,
+		TagHoverText:     0x001C1C1C,
+		InfoBarBg:        0x00DCF0FF,
+		InfoBarText:      0x00005FB8,
+	}
+}
+
 type Floater struct {
 	mu            sync.Mutex
 	hwnd          windows.HWND
@@ -39,6 +98,7 @@ type Floater struct {
 	uacMessage    string
 	adapterName   string
 	adapterType   uint32
+	themeSetting  string
 	privacyMode   string
 	showCustomBtn bool
 	marqueeOffset int32
@@ -54,6 +114,7 @@ func NewFloater(onProfileSet func(string, bool), onConfigOpen func()) (*Floater,
 		dpi:           96,
 		hoveredRow:    -1,
 		activeName:    "DHCP",
+		themeSetting:  "auto",
 		privacyMode:   config.PrivacyModeVisible,
 		showCustomBtn: true,
 		onProfileSet:  onProfileSet,
@@ -122,7 +183,13 @@ func (f *Floater) createWindow() error {
 }
 
 func (f *Floater) updateTheme() {
-	f.isDark = !winapi.GetAppsUseLightTheme()
+	if f.themeSetting == "dark" {
+		f.isDark = true
+	} else if f.themeSetting == "light" {
+		f.isDark = false
+	} else {
+		f.isDark = !winapi.GetAppsUseLightTheme()
+	}
 	f.accentR, f.accentG, f.accentB = winapi.GetLiveAccentColor()
 	winapi.ApplyWindows11Styling(f.hwnd, f.isDark)
 }
@@ -163,6 +230,7 @@ func (f *Floater) showInternal() {
 	cfg, err := config.LoadConfig()
 	if err == nil {
 		f.profiles = cfg.Profiles
+		f.themeSetting = cfg.EffectiveTheme()
 		f.privacyMode = cfg.EffectivePrivacyMode()
 		f.showCustomBtn = cfg.EffectiveShowCustomButton()
 	}
@@ -221,7 +289,7 @@ func (f *Floater) calculateDimensions() (w, h int32) {
 	} else {
 		rowsTotalH = int32(len(f.profiles)) * rowH
 		if len(f.profiles) < 5 && f.showCustomBtn {
-			rowsTotalH += scale(32)
+			rowsTotalH += scale(38)
 		}
 	}
 
@@ -472,16 +540,17 @@ func (f *Floater) handleMouseMove(pt winapi.POINT) {
 		}
 
 		if len(f.profiles) < 5 && f.showCustomBtn {
+			btnH := scale(32)
 			btnRect := winapi.RECT{
 				Left:   sidePad,
-				Top:    currY + scale(2),
+				Top:    currY + scale(4),
 				Right:  w - sidePad,
-				Bottom: currY + scale(30),
+				Bottom: currY + scale(4) + btnH,
 			}
 			if f.hoveredRow == -1 && pt.X >= btnRect.Left && pt.X <= btnRect.Right && pt.Y >= btnRect.Top && pt.Y <= btnRect.Bottom {
 				f.hoveredRow = 99
 			}
-			currY += scale(32)
+			currY += btnH + scale(6)
 		}
 	}
 
@@ -584,78 +653,64 @@ func (f *Floater) paint(hdc windows.Handle) {
 	memDC := winapi.CreateCompatibleDC(hdc)
 	defer winapi.DeleteDC(memDC)
 
-	memBmp := winapi.CreateCompatibleBitmap(hdc, w, h)
+	var bmi winapi.BITMAPINFO
+	bmi.BmiHeader.BiSize = uint32(unsafe.Sizeof(bmi.BmiHeader))
+	bmi.BmiHeader.BiWidth = w
+	bmi.BmiHeader.BiHeight = -h // Negative height creates top-down DIB
+	bmi.BmiHeader.BiPlanes = 1
+	bmi.BmiHeader.BiBitCount = 32
+	bmi.BmiHeader.BiCompression = winapi.BI_RGB
+
+	var pBits *byte
+	memBmp := winapi.CreateDIBSection(hdc, &bmi, winapi.DIB_RGB_COLORS, &pBits, 0, 0)
 	defer winapi.DeleteObject(memBmp)
 
 	oldBmp := winapi.SelectObject(memDC, memBmp)
 	defer winapi.SelectObject(memDC, oldBmp)
 
-	// In DWM Acrylic composition, painting pure black (0x000000) onto the 32-bit buffer
-	// makes that region transparent and shows through the Acrylic frosted glass & noise backdrop.
+	// Initialize memory buffer with ambient acrylic color in light mode so GDI font
+	// rasterization antialiases against the actual perceived glass luminance instead of pitch black.
+	var bgCol uint32 = 0x00000000
+	if !f.isDark {
+		bgCol = 0x00EFECE9
+	}
 	bgRect := winapi.RECT{Left: 0, Top: 0, Right: w, Bottom: h}
-	hbrBg := winapi.CreateSolidBrush(0x000000)
+	hbrBg := winapi.CreateSolidBrush(bgCol)
 	winapi.FillRect(memDC, &bgRect, hbrBg)
 	winapi.DeleteObject(hbrBg)
 
 	dc := memDC
 
-	// Colors for Win11 Dark/Light theme
-	var (
-		borderCol uint32 = 0x383838
-		textMain  uint32 = 0xFFFFFF
-		textSub   uint32 = 0x8C8C8C
-		hoverPill uint32 = 0x262626
-		accentRGB uint32 = uint32(f.accentR) | (uint32(f.accentG) << 8) | (uint32(f.accentB) << 16)
-	)
-
-	if !f.isDark {
-		borderCol = 0xE5E5E5
-		textMain = 0x1A1A1A
-		textSub = 0x666666
-		hoverPill = 0xECECEC
-	}
-
-	// Single source of truth for accent blends
-	blendChan := func(fg, bg uint8, alpha float64) uint8 {
-		return uint8(float64(fg)*alpha + float64(bg)*(1-alpha))
-	}
-	var bgR, bgG, bgB uint8
-	if f.isDark {
-		bgR, bgG, bgB = 0x20, 0x20, 0x20
-	} else {
-		bgR, bgG, bgB = 0xF9, 0xF9, 0xF9
-	}
-	// Subtle 14% accent fill & delicate 32% border for active state
-	activePillFill := uint32(blendChan(f.accentR, bgR, 0.14)) | (uint32(blendChan(f.accentG, bgG, 0.14)) << 8) | (uint32(blendChan(f.accentB, bgB, 0.14)) << 16)
-	activePillBorder := uint32(blendChan(f.accentR, bgR, 0.32)) | (uint32(blendChan(f.accentG, bgG, 0.32)) << 8) | (uint32(blendChan(f.accentB, bgB, 0.32)) << 16)
+	pal := getThemePalette(f.isDark, f.accentR, f.accentG, f.accentB)
+	accentRGB := uint32(f.accentR) | (uint32(f.accentG) << 8) | (uint32(f.accentB) << 16)
 
 	winapi.SetBkMode(dc, winapi.TRANSPARENT)
 
 	scale := func(v int32) int32 { return winapi.ScaleDpi(v, f.dpi) }
 
-	// Typography setup (ClearType Natural Antialiasing, Segoe UI Variable / Segoe UI)
-	const cleartypeNatural = 6
+	// Typography setup (ANTIALIASED_QUALITY = 4: Grayscale antialiasing for clean rendering on transparent glass)
+	const fontQuality = 4
 
-	fontTitle := winapi.CreateFont(-scale(13), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
+	fontTitle := winapi.CreateFont(-scale(13), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, fontQuality, 0, "Segoe UI Variable Text")
 	defer winapi.DeleteObject(fontTitle)
 
-	fontBold := winapi.CreateFont(-scale(12), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
+	fontBold := winapi.CreateFont(-scale(13), 0, 0, 0, 700, 0, 0, 0, 1, 0, 0, fontQuality, 0, "Segoe UI Variable Text")
 	defer winapi.DeleteObject(fontBold)
 
-	fontRegular := winapi.CreateFont(-scale(12), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
+	fontRegular := winapi.CreateFont(-scale(13), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, fontQuality, 0, "Segoe UI Variable Text")
 	defer winapi.DeleteObject(fontRegular)
 
-	fontSmall := winapi.CreateFont(-scale(10), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
+	fontSmall := winapi.CreateFont(-scale(11), 0, 0, 0, 450, 0, 0, 0, 1, 0, 0, fontQuality, 0, "Segoe UI Variable Text")
 	defer winapi.DeleteObject(fontSmall)
 
-	fontTag := winapi.CreateFont(-scale(9), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe UI Variable Text")
+	fontTag := winapi.CreateFont(-scale(10), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, fontQuality, 0, "Segoe UI Variable Text")
 	defer winapi.DeleteObject(fontTag)
 
 	sidePad := scale(12)
 
 	// 3. Header: "Nodal" on left, [Icon + Adapter Name / Marquee] on same row right-aligned
 	oldFont := winapi.SelectObject(dc, fontTitle)
-	winapi.SetTextColor(dc, textMain)
+	winapi.SetTextColor(dc, pal.TextMain)
 
 	titleRect := winapi.RECT{Left: sidePad + scale(4), Top: scale(10), Right: sidePad + scale(75), Bottom: scale(34)}
 	winapi.DrawText(dc, "Nodal", &titleRect, 0x0024) // DT_VCENTER | DT_SINGLELINE
@@ -694,27 +749,57 @@ func (f *Floater) paint(hdc windows.Handle) {
 		totalRightW := glyphSize + glyphGap + textW
 		startX := w - (sidePad + scale(4)) - totalRightW
 
+		pillFillCol := uint32(0x00F0EFEF)
+		pillBorderCol := uint32(0x00E0DEDC)
+		if f.isDark {
+			pillFillCol = 0x00262626
+			pillBorderCol = 0x003A3A3A
+		}
+		pillRgn := winapi.CreateRoundRectRgn(startX-scale(8), scale(9), startX+totalRightW+scale(8), scale(35), scale(13), scale(13))
+		hbrPill := winapi.CreateSolidBrush(pillFillCol)
+		winapi.FillRgn(dc, pillRgn, hbrPill)
+		winapi.DeleteObject(hbrPill)
+		hbrPillBorder := winapi.CreateSolidBrush(pillBorderCol)
+		winapi.FrameRgn(dc, pillRgn, hbrPillBorder, 1, 1)
+		winapi.DeleteObject(hbrPillBorder)
+		winapi.DeleteObject(pillRgn)
+
 		// Draw adapter icon glyph
-		fontGlyph := winapi.CreateFont(-scale(13), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe Fluent Icons")
+		fontGlyph := winapi.CreateFont(-scale(13), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, fontQuality, 0, "Segoe Fluent Icons")
 		winapi.SelectObject(dc, fontGlyph)
-		winapi.SetTextColor(dc, textSub)
+		winapi.SetTextColor(dc, pal.TextSub)
 		glyphRect := winapi.RECT{Left: startX, Top: scale(10), Right: startX + glyphSize, Bottom: scale(34)}
 		winapi.DrawText(dc, adapterGlyph, &glyphRect, 0x0025) // DT_CENTER | DT_VCENTER | DT_SINGLELINE
 		winapi.DeleteObject(fontGlyph)
 
 		// Draw adapter name
 		winapi.SelectObject(dc, fontSmall)
-		winapi.SetTextColor(dc, textSub)
+		winapi.SetTextColor(dc, pal.TextSub)
 		nameRect := winapi.RECT{Left: startX + glyphSize + glyphGap, Top: scale(10), Right: startX + glyphSize + glyphGap + textW, Bottom: scale(34)}
 		winapi.DrawText(dc, modeText, &nameRect, 0x0024) // DT_VCENTER | DT_SINGLELINE
 	} else {
 		// Overflows -> Smooth infinite marquee ticker
 		startX := w - (sidePad + scale(4)) - availRightW
 
+		pillFillCol := uint32(0x00F0EFEF)
+		pillBorderCol := uint32(0x00E0DEDC)
+		if f.isDark {
+			pillFillCol = 0x00262626
+			pillBorderCol = 0x003A3A3A
+		}
+		pillRgn := winapi.CreateRoundRectRgn(startX-scale(8), scale(9), w-(sidePad+scale(4))+scale(8), scale(35), scale(13), scale(13))
+		hbrPill := winapi.CreateSolidBrush(pillFillCol)
+		winapi.FillRgn(dc, pillRgn, hbrPill)
+		winapi.DeleteObject(hbrPill)
+		hbrPillBorder := winapi.CreateSolidBrush(pillBorderCol)
+		winapi.FrameRgn(dc, pillRgn, hbrPillBorder, 1, 1)
+		winapi.DeleteObject(hbrPillBorder)
+		winapi.DeleteObject(pillRgn)
+
 		// Draw adapter icon glyph
-		fontGlyph := winapi.CreateFont(-scale(13), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe Fluent Icons")
+		fontGlyph := winapi.CreateFont(-scale(13), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, fontQuality, 0, "Segoe Fluent Icons")
 		winapi.SelectObject(dc, fontGlyph)
-		winapi.SetTextColor(dc, textSub)
+		winapi.SetTextColor(dc, pal.TextSub)
 		glyphRect := winapi.RECT{Left: startX, Top: scale(10), Right: startX + glyphSize, Bottom: scale(34)}
 		winapi.DrawText(dc, adapterGlyph, &glyphRect, 0x0025) // DT_CENTER | DT_VCENTER | DT_SINGLELINE
 		winapi.DeleteObject(fontGlyph)
@@ -723,7 +808,7 @@ func (f *Floater) paint(hdc windows.Handle) {
 		nameRect := winapi.RECT{Left: startX + glyphSize + glyphGap, Top: scale(10), Right: w - (sidePad + scale(4)), Bottom: scale(34)}
 
 		winapi.SelectObject(dc, fontSmall)
-		winapi.SetTextColor(dc, textSub)
+		winapi.SetTextColor(dc, pal.TextSub)
 
 		gap := scale(28)
 		cycle := textW + gap
@@ -767,7 +852,7 @@ func (f *Floater) paint(hdc windows.Handle) {
 			Bottom: currY + scale(28),
 		}
 		winapi.SelectObject(dc, fontSmall)
-		winapi.SetTextColor(dc, textSub)
+		winapi.SetTextColor(dc, pal.TextSub)
 		winapi.DrawText(dc, "No DNS presets in config.toml", &infoRect, 0x0001|0x0020) // DT_CENTER | DT_VCENTER
 
 		btnRect := winapi.RECT{
@@ -779,11 +864,11 @@ func (f *Floater) paint(hdc windows.Handle) {
 		isHovered := f.hoveredRow == 0
 		rgn := winapi.CreateRoundRectRgn(btnRect.Left, btnRect.Top, btnRect.Right, btnRect.Bottom, scale(6), scale(6))
 		if isHovered {
-			hbr := winapi.CreateSolidBrush(hoverPill)
+			hbr := winapi.CreateSolidBrush(pal.HoverPill)
 			winapi.FillRgn(dc, rgn, hbr)
 			winapi.DeleteObject(hbr)
 		}
-		hbrBorder := winapi.CreateSolidBrush(borderCol)
+		hbrBorder := winapi.CreateSolidBrush(pal.Border)
 		winapi.FrameRgn(dc, rgn, hbrBorder, 1, 1)
 		winapi.DeleteObject(hbrBorder)
 		winapi.DeleteObject(rgn)
@@ -808,12 +893,12 @@ func (f *Floater) paint(hdc windows.Handle) {
 			// Row Pill Background
 			if isActive {
 				rgn := winapi.CreateRoundRectRgn(rowRect.Left, rowRect.Top, rowRect.Right, rowRect.Bottom, scale(6), scale(6))
-				hbrActiveFill := winapi.CreateSolidBrush(activePillFill)
+				hbrActiveFill := winapi.CreateSolidBrush(pal.ActivePillFill)
 				winapi.FillRgn(dc, rgn, hbrActiveFill)
 				winapi.DeleteObject(hbrActiveFill)
 
 				// Delicate, subtle accent border
-				hbrActiveBorder := winapi.CreateSolidBrush(activePillBorder)
+				hbrActiveBorder := winapi.CreateSolidBrush(pal.ActivePillBorder)
 				winapi.FrameRgn(dc, rgn, hbrActiveBorder, 1, 1)
 				winapi.DeleteObject(hbrActiveBorder)
 				winapi.DeleteObject(rgn)
@@ -830,9 +915,29 @@ func (f *Floater) paint(hdc windows.Handle) {
 				winapi.DeleteObject(hbrDot)
 			} else if isHovered {
 				rgn := winapi.CreateRoundRectRgn(rowRect.Left, rowRect.Top, rowRect.Right, rowRect.Bottom, scale(6), scale(6))
-				hbrHov := winapi.CreateSolidBrush(hoverPill)
+				hbrHov := winapi.CreateSolidBrush(pal.HoverPill)
 				winapi.FillRgn(dc, rgn, hbrHov)
 				winapi.DeleteObject(hbrHov)
+
+				hbrBorder := winapi.CreateSolidBrush(pal.Border)
+				winapi.FrameRgn(dc, rgn, hbrBorder, 1, 1)
+				winapi.DeleteObject(hbrBorder)
+				winapi.DeleteObject(rgn)
+			} else {
+				cardFillCol := uint32(0x00FAF9F8)
+				cardBorderCol := uint32(0x00E2E0DE)
+				if f.isDark {
+					cardFillCol = 0x00202020
+					cardBorderCol = 0x00323232
+				}
+				rgn := winapi.CreateRoundRectRgn(rowRect.Left, rowRect.Top, rowRect.Right, rowRect.Bottom, scale(6), scale(6))
+				hbrCardFill := winapi.CreateSolidBrush(cardFillCol)
+				winapi.FillRgn(dc, rgn, hbrCardFill)
+				winapi.DeleteObject(hbrCardFill)
+
+				hbrBorder := winapi.CreateSolidBrush(cardBorderCol)
+				winapi.FrameRgn(dc, rgn, hbrBorder, 1, 1)
+				winapi.DeleteObject(hbrBorder)
 				winapi.DeleteObject(rgn)
 			}
 
@@ -844,40 +949,28 @@ func (f *Floater) paint(hdc windows.Handle) {
 				winapi.DrawText(dc, p.Tag, &tagCalcRect, 0x0420) // DT_CALCRECT | DT_SINGLELINE
 				tagTextW := tagCalcRect.Right - tagCalcRect.Left
 
-				badgeH := scale(18)
-				badgeW := tagTextW + scale(12)
+				badgeH := scale(20)
+				badgeW := tagTextW + scale(14)
 				badgeRight := rowRect.Right - scale(10)
 				badgeLeft := badgeRight - badgeW
 				badgeTop := rowRect.Top + (rowRect.Height()-badgeH)/2
 				badgeBottom := badgeTop + badgeH
 				badgeRect := winapi.RECT{Left: badgeLeft, Top: badgeTop, Right: badgeRight, Bottom: badgeBottom}
 
-				badgeRgn := winapi.CreateRoundRectRgn(badgeLeft, badgeTop, badgeRight, badgeBottom, scale(4), scale(4))
+				badgeRgn := winapi.CreateRoundRectRgn(badgeLeft, badgeTop, badgeRight, badgeBottom, scale(5), scale(5))
 
-				var (
-					tagBgCol     uint32 = 0x222222
-					tagBorderCol uint32 = 0x363636
-					tagTextCol   uint32 = 0x888888
-				)
-				if !f.isDark {
-					tagBgCol = 0xEEEEEE
-					tagBorderCol = 0xD8D8D8
-					tagTextCol = 0x666666
-				}
+				tagBgCol := pal.TagBg
+				tagBorderCol := pal.TagBorder
+				tagTextCol := pal.TagText
 
 				if isActive {
-					tagBgCol = activePillFill
-					tagBorderCol = activePillBorder
+					tagBgCol = pal.ActivePillFill
+					tagBorderCol = pal.ActivePillBorder
 					tagTextCol = accentRGB
 				} else if isHovered {
-					tagBgCol = 0x2C2C2C
-					tagBorderCol = 0x444444
-					tagTextCol = 0xC0C0C0
-					if !f.isDark {
-						tagBgCol = 0xE4E4E4
-						tagBorderCol = 0xCCCCCC
-						tagTextCol = 0x333333
-					}
+					tagBgCol = pal.TagHoverBg
+					tagBorderCol = pal.TagHoverBorder
+					tagTextCol = pal.TagHoverText
 				}
 
 				hbrTagBg := winapi.CreateSolidBrush(tagBgCol)
@@ -900,10 +993,10 @@ func (f *Floater) paint(hdc windows.Handle) {
 			textX := rowRect.Left + scale(15)
 			if isActive {
 				winapi.SelectObject(dc, fontBold)
-				winapi.SetTextColor(dc, textMain)
+				winapi.SetTextColor(dc, pal.TextMain)
 			} else {
 				winapi.SelectObject(dc, fontRegular)
-				winapi.SetTextColor(dc, textMain)
+				winapi.SetTextColor(dc, pal.TextMain)
 			}
 
 			if f.privacyMode == config.PrivacyModeHidden {
@@ -926,7 +1019,7 @@ func (f *Floater) paint(hdc windows.Handle) {
 
 				// Secondary text: IPs or "Automatic DNS"
 				winapi.SelectObject(dc, fontSmall)
-				winapi.SetTextColor(dc, textSub)
+				winapi.SetTextColor(dc, pal.TextSub)
 
 				var ipLabel string
 				if p.Primary != "" {
@@ -959,37 +1052,49 @@ func (f *Floater) paint(hdc windows.Handle) {
 		}
 
 		if len(f.profiles) < 5 && f.showCustomBtn {
+			btnH := scale(32)
 			btnRect := winapi.RECT{
 				Left:   sidePad,
-				Top:    currY + scale(2),
+				Top:    currY + scale(4),
 				Right:  w - sidePad,
-				Bottom: currY + scale(30),
+				Bottom: currY + scale(4) + btnH,
 			}
 			isHovered := f.hoveredRow == 99
 			rgn := winapi.CreateRoundRectRgn(btnRect.Left, btnRect.Top, btnRect.Right, btnRect.Bottom, scale(5), scale(5))
+
+			btnBgCol := accentRGB
 			if isHovered {
-				hbr := winapi.CreateSolidBrush(hoverPill)
-				winapi.FillRgn(dc, rgn, hbr)
-				winapi.DeleteObject(hbr)
+				hoverR := uint8(float64(f.accentR)*0.85 + 255*0.15)
+				hoverG := uint8(float64(f.accentG)*0.85 + 255*0.15)
+				hoverB := uint8(float64(f.accentB)*0.85 + 255*0.15)
+				btnBgCol = uint32(hoverR) | (uint32(hoverG) << 8) | (uint32(hoverB) << 16)
 			}
+
+			hbrBtn := winapi.CreateSolidBrush(btnBgCol)
+			winapi.FillRgn(dc, rgn, hbrBtn)
+			winapi.DeleteObject(hbrBtn)
+
+			borderR := uint8(float64(f.accentR) * 0.85)
+			borderG := uint8(float64(f.accentG) * 0.85)
+			borderB := uint8(float64(f.accentB) * 0.85)
+			borderCol := uint32(borderR) | (uint32(borderG) << 8) | (uint32(borderB) << 16)
+			hbrBorder := winapi.CreateSolidBrush(borderCol)
+			winapi.FrameRgn(dc, rgn, hbrBorder, 1, 1)
+			winapi.DeleteObject(hbrBorder)
 			winapi.DeleteObject(rgn)
 
-			winapi.SelectObject(dc, fontSmall)
-			winapi.SetTextColor(dc, accentRGB)
+			fontButton := winapi.CreateFont(-scale(12), 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, fontQuality, 0, "Segoe UI Variable Text")
+			winapi.SelectObject(dc, fontButton)
+			winapi.SetTextColor(dc, 0x00FFFFFF) // Pure white text
 			winapi.DrawText(dc, "+ Custom DNS", &btnRect, 0x0001|0x0024) // DT_CENTER | DT_VCENTER | DT_SINGLELINE
+			winapi.DeleteObject(fontButton)
 
-			currY += scale(32)
+			currY += btnH + scale(6)
 		}
 	}
 
 	// 5. UAC Warning InfoBar (filled, WinUI 3-style)
 	if f.uacAlert {
-		var infoBarBg uint32 = 0x18222A
-		if !f.isDark {
-			infoBarBg = 0xE2F3FE
-		}
-		const amberBGR uint32 = 0x48A9F7
-
 		bannerH := scale(36)
 		bannerRect := winapi.RECT{
 			Left:   sidePad,
@@ -1000,23 +1105,23 @@ func (f *Floater) paint(hdc windows.Handle) {
 
 		// Filled rounded background
 		rgn := winapi.CreateRoundRectRgn(bannerRect.Left, bannerRect.Top, bannerRect.Right, bannerRect.Bottom, scale(6), scale(6))
-		hbrBg := winapi.CreateSolidBrush(infoBarBg)
+		hbrBg := winapi.CreateSolidBrush(pal.InfoBarBg)
 		winapi.FillRgn(dc, rgn, hbrBg)
 		winapi.DeleteObject(hbrBg)
 		winapi.DeleteObject(rgn)
 
 		// 3px left accent stripe
 		stripeRgn := winapi.CreateRoundRectRgn(bannerRect.Left, bannerRect.Top, bannerRect.Left+scale(3), bannerRect.Bottom, scale(3), scale(3))
-		hbrStripe := winapi.CreateSolidBrush(amberBGR)
+		hbrStripe := winapi.CreateSolidBrush(pal.InfoBarText)
 		winapi.FillRgn(dc, stripeRgn, hbrStripe)
 		winapi.DeleteObject(hbrStripe)
 		winapi.DeleteObject(stripeRgn)
 
 		// Warning glyph E7BA (Segoe Fluent Icons)
 		const warningGlyph = "\uE7BA"
-		fontGlyph := winapi.CreateFont(-scale(14), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, cleartypeNatural, 0, "Segoe Fluent Icons")
+		fontGlyph := winapi.CreateFont(-scale(14), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, fontQuality, 0, "Segoe Fluent Icons")
 		winapi.SelectObject(dc, fontGlyph)
-		winapi.SetTextColor(dc, amberBGR)
+		winapi.SetTextColor(dc, pal.InfoBarText)
 		glyphRect := winapi.RECT{
 			Left:   bannerRect.Left + scale(10),
 			Top:    bannerRect.Top,
@@ -1032,7 +1137,7 @@ func (f *Floater) paint(hdc windows.Handle) {
 			txt = f.uacMessage + " — click to fix"
 		}
 		winapi.SelectObject(dc, fontSmall)
-		winapi.SetTextColor(dc, amberBGR)
+		winapi.SetTextColor(dc, pal.InfoBarText)
 		txtRect := winapi.RECT{
 			Left:   bannerRect.Left + scale(30),
 			Top:    bannerRect.Top,
@@ -1043,5 +1148,100 @@ func (f *Floater) paint(hdc windows.Handle) {
 	}
 
 	winapi.SelectObject(dc, oldFont)
+
+	// In DWM Acrylic composition, standard GDI operations leave the alpha channel as 0x00.
+	// For unpainted areas, alpha=0x00 is desirable because it allows the frosted Acrylic blur
+	// and noise backdrop to show through. For any pixel painted with text, icons, or badges,
+	// alpha must be 0xFF so DWM renders it opaquely rather than washing it out additively.
+	// Post-processing DIB pixels:
+	// Untouched background pixels matching bgCol are zeroed to 0x00000000 (Alpha=0) so DWM renders
+	// the 100% clear frosted glass Acrylic blur & noise backdrop.
+	// All painted content (antialiased text, cards, borders, icons) has its alpha forced to 0xFF (255)
+	// so it renders with silky-smooth, razor-sharp edges over the live acrylic glass without any pixelation.
+	if pBits != nil && w > 0 && h > 0 {
+		pixelSlice := unsafe.Slice((*uint32)(unsafe.Pointer(pBits)), int(w*h))
+		if !f.isDark {
+			const (
+				bgR         = 0xE9
+				bgG         = 0xEC
+				bgB         = 0xEF
+				targetTextR = 0x1C
+				targetTextG = 0x1C
+				targetTextB = 0x1C
+			)
+			for i := 0; i < len(pixelSlice); i++ {
+				pix := pixelSlice[i]
+				rgb := pix & 0x00FFFFFF
+				if rgb == bgCol {
+					pixelSlice[i] = 0x00000000
+					continue
+				}
+
+				b := int32(pix & 0xFF)
+				g := int32((pix >> 8) & 0xFF)
+				r := int32((pix >> 16) & 0xFF)
+
+				diffR := bgR - r
+				if diffR < 0 {
+					diffR = -diffR
+				}
+				diffG := bgG - g
+				if diffG < 0 {
+					diffG = -diffG
+				}
+				diffB := bgB - b
+				if diffB < 0 {
+					diffB = -diffB
+				}
+
+				maxDiff := diffR
+				if diffG > maxDiff {
+					maxDiff = diffG
+				}
+				if diffB > maxDiff {
+					maxDiff = diffB
+				}
+
+				if maxDiff <= 2 {
+					pixelSlice[i] = 0x00000000
+				} else if r > bgR || g > bgG || b > bgB || maxDiff > 160 {
+					pixelSlice[i] = 0xFF000000 | rgb
+				} else {
+					alpha := (maxDiff * 255) / 180
+					if alpha > 255 {
+						alpha = 255
+					}
+					rPrem := (targetTextR * alpha) / 255
+					gPrem := (targetTextG * alpha) / 255
+					bPrem := (targetTextB * alpha) / 255
+					pixelSlice[i] = (uint32(alpha) << 24) | (uint32(rPrem) << 16) | (uint32(gPrem) << 8) | uint32(bPrem)
+				}
+			}
+		} else {
+			for i := 0; i < len(pixelSlice); i++ {
+				pix := pixelSlice[i]
+				rgb := pix & 0x00FFFFFF
+				if rgb == 0 {
+					continue
+				}
+				b := pix & 0xFF
+				g := (pix >> 8) & 0xFF
+				r := (pix >> 16) & 0xFF
+				maxC := r
+				if g > maxC {
+					maxC = g
+				}
+				if b > maxC {
+					maxC = b
+				}
+				a := maxC
+				if a > 255 || maxC >= 180 {
+					a = 255
+				}
+				pixelSlice[i] = (a << 24) | rgb
+			}
+		}
+	}
+
 	winapi.BitBlt(hdc, 0, 0, w, h, memDC, 0, 0, winapi.SRCCOPY)
 }

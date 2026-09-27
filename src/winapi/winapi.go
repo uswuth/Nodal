@@ -680,8 +680,10 @@ func DwmGetColorizationColor(color *uint32, opaqueBlend *int32) uintptr {
 	return r1
 }
 
-// GetAppsUseLightTheme checks Windows 11 / 10 theme setting in HKCU.
-// For taskbar/tray flyouts, SystemUsesLightTheme takes priority.
+// GetAppsUseLightTheme returns whether the user's app UI should use light mode.
+// Reads AppsUseLightTheme first (controls app chrome colors), falls back to
+// SystemUsesLightTheme (controls taskbar/tray). This ensures text colors and
+// the acrylic backdrop tint are always computed from the same theme signal.
 func GetAppsUseLightTheme() bool {
 	k, err := registry.OpenKey(
 		registry.CURRENT_USER,
@@ -689,14 +691,14 @@ func GetAppsUseLightTheme() bool {
 		registry.QUERY_VALUE,
 	)
 	if err != nil {
-		return false // default to dark
+		return false
 	}
 	defer k.Close()
 
-	if val, _, err := k.GetIntegerValue("SystemUsesLightTheme"); err == nil {
+	if val, _, err := k.GetIntegerValue("AppsUseLightTheme"); err == nil {
 		return val != 0
 	}
-	if val, _, err := k.GetIntegerValue("AppsUseLightTheme"); err == nil {
+	if val, _, err := k.GetIntegerValue("SystemUsesLightTheme"); err == nil {
 		return val != 0
 	}
 	return false
@@ -817,7 +819,7 @@ func EnableAcrylicBlur(hwnd windows.HWND, isDark bool) {
 		if isDark {
 			gradientColor = 0x45181818 // ~27% translucent dark tint with clear frosted glass blur & noise
 		} else {
-			gradientColor = 0x45F0F0F0 // ~27% translucent light tint with clear frosted glass blur & noise
+			gradientColor = 0x12F8F8F8 // ~7% crystal clear translucent frosted glass blur & noise
 		}
 
 		policy := ACCENT_POLICY{
@@ -859,19 +861,7 @@ func ApplyWindows11Styling(hwnd windows.HWND, isDark bool) {
 		uint32(unsafe.Sizeof(cornerVal)),
 	)
 
-	// 3. Transient Window Backdrop — requires Build 22621 (22H2)+
-	build := WindowsBuildNumber()
-	if build >= 22621 {
-		var backdropVal int32 = DWMSBT_TRANSIENTWINDOW
-		_ = DwmSetWindowAttribute(
-			hwnd,
-			DWMWA_SYSTEMBACKDROP_TYPE,
-			unsafe.Pointer(&backdropVal),
-			uint32(unsafe.Sizeof(backdropVal)),
-		)
-	}
-
-	// 4. Acrylic Frosted Glass Blur with subtle noise
+	// 3. Acrylic Frosted Glass Blur with subtle noise
 	EnableAcrylicBlur(hwnd, isDark)
 }
 

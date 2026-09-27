@@ -136,7 +136,13 @@ func main() {
 		},
 		func() {
 			// Right-click context menu "Exit"
-			winapi.PostQuitMessage(0)
+			if floaterWnd != nil {
+				floaterWnd.Hide()
+			}
+			if trayMgr != nil {
+				trayMgr.Remove()
+			}
+			os.Exit(0)
 		},
 	)
 

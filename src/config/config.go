@@ -34,9 +34,18 @@ type DNSProfile struct {
 type Config struct {
 	Autostart        bool         `toml:"autostart"`
 	PrivacyMode      string       `toml:"privacy_mode"`
+	Theme            string       `toml:"theme,omitempty"` // "auto" | "dark" | "light"
 	ShowCustomButton *bool        `toml:"show_custom_button,omitempty"`
 	HideIP           *bool        `toml:"hide_ip,omitempty"` // Legacy backward-compatibility
 	Profiles         []DNSProfile `toml:"dns"`
+}
+
+func (c *Config) EffectiveTheme() string {
+	t := strings.ToLower(strings.TrimSpace(c.Theme))
+	if t == "dark" || t == "light" {
+		return t
+	}
+	return "auto"
 }
 
 func (c *Config) EffectiveShowCustomButton() bool {
@@ -151,6 +160,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Autostart:        false,
 		PrivacyMode:      PrivacyModeVisible,
+		Theme:            "auto",
 		ShowCustomButton: &showCustom,
 		Profiles: []DNSProfile{
 			{
@@ -305,6 +315,7 @@ func saveConfigFileInternal(path string, cfg *Config) error {
 
 	buf.WriteString("#:schema ./schema.json\n\n")
 	buf.WriteString(fmt.Sprintf("autostart = %t\n", cfg.Autostart))
+	buf.WriteString(fmt.Sprintf("theme = %q             # \"auto\" | \"dark\" | \"light\"\n", cfg.EffectiveTheme()))
 	buf.WriteString(fmt.Sprintf("privacy_mode = %q      # \"visible\" | \"masked\" | \"hidden\"\n", cfg.EffectivePrivacyMode()))
 	buf.WriteString(fmt.Sprintf("show_custom_button = %t    # show \"+ Custom DNS\" button in flyout\n", cfg.EffectiveShowCustomButton()))
 	buf.WriteString("\n# DNS Presets (max 5 items)\n")

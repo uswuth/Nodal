@@ -4,8 +4,8 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  bin = "./tmp/Nodal.exe"
   cmd = "go build -ldflags=\"-H windowsgui -s -w\" -o ./tmp/Nodal.exe ./cmd/nodal"
+  bin = "./tmp/Nodal.exe"
   delay = 500
   exclude_dir = ["tmp", "docs", "vendor", "testdata", ".git", ".agents"]
   exclude_regex = ["_test\\.go"]
@@ -15,9 +15,9 @@ tmp_dir = "tmp"
   stop_on_error = true
 
   [build.windows]
-    bin = "tmp\\Nodal.exe"
     cmd = "go build -ldflags=\"-H windowsgui -s -w\" -o ./tmp/Nodal.exe ./cmd/nodal"
-    pre_cmd = ["Stop-Process -Name Nodal -Force -ErrorAction SilentlyContinue; Remove-Item -Path .\\tmp\\Nodal.exe -Force -ErrorAction SilentlyContinue; exit 0"]
+    bin = ".\\tmp\\Nodal.exe"
+    pre_cmd = ["powershell -NoProfile -NonInteractive -Command \"Stop-Process -Name Nodal -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 150; Remove-Item -Path .\\tmp\\Nodal.exe -Force -ErrorAction SilentlyContinue; exit 0\""]
 
 [color]
   build = "yellow"
