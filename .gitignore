@@ -145,5 +145,20 @@ vite.config.ts.timestamp-*
 # Astro generated types
 .astro/
 
+# Nitro / Vite files
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+.vite/
+
+# Astro generated types
+.astro/
+
 # Turbo Repo
 .turbo
+
+# Nodal build artifacts — keep README's preview PNGs in docs/images/ only
+nodal-debug.exe
+bin/nodal-logo.png
+cmd/nodal/resource.syso
+package.json
+package-lock.json

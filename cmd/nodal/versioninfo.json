@@ -38,6 +38,6 @@
       "CharsetID": "04B0"
     }
   },
-  "IconPath": "",
+  "IconPath": "../../docs/images/nodal.ico",
   "ManifestPath": "nodal.manifest"
 }

@@ -63,9 +63,10 @@ VersionInfoDescription={#MyAppName} Setup - {#MyAppDescription}
 VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}
 VersionInfoCopyright=Copyright (C) 2026 {#MyAppPublisher}. MIT License.
+WizardBitmapImage=..\docs\images\nodal-wizard.bmp
 
 [Messages]
-WelcomeLabel2=This wizard will install [name/ver] on your computer.%n%nPublisher: {#MyAppPublisher}%nDescription: {#MyAppDescription} (system tray utility)%nCost: Free of charge - no subscription, no license key, no account required%n%nNodal collects no personal data and sends no telemetry. It changes your network adapter's DNS resolver settings only when you pick a profile from the tray flyout.
+WelcomeLabel2=This wizard will install [name] [ver] on your computer.
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -159,4 +160,75 @@ begin
         DelTree(ConfigDir, True, True, True);
     end;
   end;
+end;
+
+procedure InitializeWizard();
+var
+  LB: TLabel;
+  Y: Integer;
+  BaseLeft: Integer;
+begin
+  // Replace the plain-text welcome label with styled labels for a polished look.
+  WizardForm.WelcomeLabel2.Visible := False;
+  BaseLeft := WizardForm.WelcomeLabel2.Left;
+  Y := WizardForm.WelcomeLabel2.Top;
+
+  // --- Title ---
+  LB := TLabel.Create(WizardForm);
+  LB.Parent := WizardForm.WelcomePage;
+  LB.Caption := 'This wizard will install {#MyAppName} {#MyAppVersion} on your computer.';
+  LB.Font.Name := 'Segoe UI';
+  LB.Font.Size := 11;
+  LB.Font.Style := [fsBold];
+  LB.Left := BaseLeft;
+  LB.Top := Y;
+  LB.AutoSize := True;
+  Y := Y + LB.Height + 8;
+
+  // --- Publisher ---
+  LB := TLabel.Create(WizardForm);
+  LB.Parent := WizardForm.WelcomePage;
+  LB.Caption := 'Publisher:    {#MyAppPublisher}';
+  LB.Font.Name := 'Segoe UI';
+  LB.Font.Size := 10;
+  LB.Font.Style := [fsBold];
+  LB.Left := BaseLeft;
+  LB.Top := Y;
+  LB.AutoSize := True;
+  Y := Y + LB.Height + 4;
+
+  // --- Description ---
+  LB := TLabel.Create(WizardForm);
+  LB.Parent := WizardForm.WelcomePage;
+  LB.Caption := 'Description:    {#MyAppDescription} (system tray utility)';
+  LB.Font.Name := 'Segoe UI';
+  LB.Font.Size := 10;
+  LB.Font.Style := [fsBold];
+  LB.Left := BaseLeft;
+  LB.Top := Y;
+  LB.AutoSize := True;
+  Y := Y + LB.Height + 4;
+
+  // --- Cost ---
+  LB := TLabel.Create(WizardForm);
+  LB.Parent := WizardForm.WelcomePage;
+  LB.Caption := 'Cost:    Free of charge.';
+  LB.Font.Name := 'Segoe UI';
+  LB.Font.Size := 10;
+  LB.Font.Style := [fsBold];
+  LB.Left := BaseLeft;
+  LB.Top := Y;
+  LB.AutoSize := True;
+  Y := Y + LB.Height + 8;
+
+  // --- Privacy note (normal weight, slightly dimmed) ---
+  LB := TLabel.Create(WizardForm);
+  LB.Parent := WizardForm.WelcomePage;
+  LB.Caption := 'Nodal collects no personal data and sends no telemetry. It changes your network adapter''s DNS resolver settings only when you pick a profile from the tray flyout.';
+  LB.Font.Name := 'Segoe UI';
+  LB.Font.Size := 10;
+  LB.Font.Color := clSilver;
+  LB.Left := BaseLeft;
+  LB.Top := Y;
+  LB.AutoSize := True;
 end;
