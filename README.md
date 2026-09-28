@@ -4,7 +4,7 @@
 
 <h1 align="center">Nodal</h1>
 
-<p align="center"><b>One-click DNS switching, from your system tray.</b><br/>No dashboard. No bloat. Just click and you're on Cloudflare, AdGuard, or DHCP.</p>
+<p align="center"><b>Your DNS, switched in one click — right from the tray.</b><br/>Native Windows. No dashboard. No account. No telemetry. Free forever.</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-11-0F6CBD?style=flat-square&logo=windows11&logoColor=white" alt="Windows 11" />
@@ -16,74 +16,63 @@
 
 ---
 
+## Preview
+
+**Dark mode** — tray menu · flyout
+
+<p align="center">
+  <img src="docs/images/preview-dark-menu.png" width="49%" alt="Nodal tray menu — dark mode" />
+  <img src="docs/images/preview-dark-flyout.png" width="49%" alt="Nodal flyout — dark mode" />
+</p>
+
+**Light mode** — tray menu · flyout
+
+<p align="center">
+  <img src="docs/images/preview-light-menu.png" width="49%" alt="Nodal tray menu — light mode" />
+  <img src="docs/images/preview-light-flyout.png" width="49%" alt="Nodal flyout — light mode" />
+</p>
+
+## Why Nodal
+
+- **One click** — switch resolvers straight from the tray; Windows Settings never opens.
+- **Native Win32** — dark/light and accent aware. No Electron, no web views, no runtimes.
+- **Silent privilege** — approve elevation once; every later switch runs without prompts.
+- **Zero footprint** — no drivers, no services, no telemetry, no network requests of its own.
+- **Clean uninstall** — one tray action reverses every change Nodal ever made.
+- **Featherweight** — one self-contained executable, under 5 MB idle.
+
+## Install
+
+Download the installer from [Releases](https://github.com/nodal/dns-switcher/releases) and run it —
+a portable build ships alongside it. Every stage, checksum verification and unattended switch:
+[Installation guide](docs/installation.md).
+
+## Uninstall
+
+Right-click the tray icon → **Clean uninstall**. Automatic DNS is restored on every adapter, the
+scheduled task, startup entry, presets and the app itself are removed — nothing else on the PC is
+touched. Details: [Uninstall](docs/installation.md#uninstall).
+
+## Configuration
+
+Presets, theme and privacy behaviour are driven by one local file — every key, type and constraint
+documented: [Configuration](docs/configuration.md).
+
 ## Product identity
 
 | | |
 | --- | --- |
 | **Publisher** | Nodal Open Source Project |
-| **Description** | Native Windows 11 DNS Switcher — one-click DNS switching from the system tray |
-| **Version** | 1.0.0 |
-| **Price** | Free of charge — no subscription, trial, license key, or account |
+| **Price** | Free of charge — no subscription, no trial, no license key, no account |
 | **License** | MIT |
 | **Platform** | Windows 10 / 11, 64-bit |
 
-## Install
+## Policies
 
-Download the latest `Nodal-Setup-<version>.exe` from the
-[Releases](https://github.com/nodal/dns-switcher/releases) page, verify its SHA-256 hash against
-`SHA256SUMS.txt`, then run the wizard. It walks through the privacy notice, the license terms, the
-destination folder and optional tasks, and registers the privileged DNS worker. A portable
-`nodal.exe` is published alongside the installer.
+Nodal contains no telemetry and makes no network requests of its own — all data stays on your
+machine.
 
-Done with it? Right-click the tray icon → **Clean uninstall**. It restores automatic (DHCP) DNS on
-every adapter, removes the scheduled task, the startup entry, your presets and the app itself, and
-touches nothing else on the PC.
-
-Full stage-by-stage instructions, unattended-install switches and uninstall details:
-[Installation guide](docs/installation.md).
-
-## Build
-
-```powershell
-.\build.ps1                 # bin\nodal.exe + dist\Nodal-Setup-<version>.exe
-.\build.ps1 -SkipInstaller  # executable only
-```
-
-Requires Go 1.21 or newer, plus Inno Setup 6.3 or newer for the installer. The build embeds the
-publisher name, product description and version from `cmd\nodal\versioninfo.json`.
-
-## Why Nodal?
-
-- **Fastest way to switch DNS on Windows** — one tray click, no Settings maze, no admin prompts every time.
-- **Feels like Windows 11** — native flyout, dark/light + accent aware.
-- **Stays out of the way** — <5 MB idle, zero background CPU, autostart optional.
-
-## Defaults
-
-`DHCP` · `Cloudflare 1.1.1.1` · `AdGuard` · `+ Custom` (up to 5)
-
-> Need Quad9, NextDNS, Family filters? → [DNS Directory](docs/dns-guide.md)
-
-## Config
-
-`%USERPROFILE%\.config\nodal\config.toml`
-
-```toml
-autostart = false
-privacy_mode = "visible"   # "visible" | "masked" | "hidden"
-
-[[dns]]
-name = "Cloudflare"
-primary = "1.1.1.1"
-secondary = "1.0.0.1"
-```
-
-## License & Policies
-
-Nodal is **free of charge** and released under the [MIT License](LICENSE). It contains no telemetry,
-makes no network requests of its own, and keeps all data on your machine.
-
-- [Terms of Service & EULA](TERMS_AND_POLICY.md) — license, system rights Nodal uses, warranty disclaimer, third-party notices
 - [Privacy Policy](PRIVACY_POLICY.md) — what stays local, what is never collected, how to erase everything
-- [Installation guide](docs/installation.md) — download, verify, install, update, uninstall
+- [Terms of Service & EULA](TERMS_AND_POLICY.md) — system rights, warranty disclaimer, third-party notices
+- [DNS Directory](docs/dns-guide.md) — curated resolvers ready to paste into a custom profile
 

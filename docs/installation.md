@@ -77,8 +77,8 @@ third-party binaries.
 ## Stage 5 — First launch and the privileged worker
 
 1. Nodal starts in the system tray (next to the clock). There is no window and no console.
-2. `%USERPROFILE%\.config\nodal\config.toml` is created with the default presets
-   (`DHCP`, `Cloudflare`, `AdGuard`) if it does not exist yet.
+2. `%USERPROFILE%\.config\nodal\config.toml` is created with the built-in presets if it does not
+   exist yet — every key is documented in [Configuration](configuration.md).
 3. Left-click the tray icon to open the flyout, then click a preset to switch DNS.
 4. If the privileged worker task is missing, Nodal asks for elevation once via UAC and registers it.
    Approving it means later switches happen without a prompt. Declining is safe — Nodal simply asks
@@ -100,56 +100,38 @@ Nodal-Setup-1.0.0.exe /SILENT /CURRENTUSER /TASKS="desktopicon" /LOG="%TEMP%\nod
 "%ProgramFiles%\Nodal\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES
 ```
 
-A silent uninstall still restores automatic (DHCP) DNS on every adapter and still removes the
-scheduled task, the startup entry and the configuration folder: the uninstaller's questions are
-suppressed and answered with the "clean removal" default (yes). Message boxes are therefore never
-left waiting for a human. Use `nodal.exe --reset-dns` on its own if you only want to drop the DNS
-overrides and keep the application.
-
 The software may be deployed through any standard software-distribution tool (Intune, Configuration
 Manager, PDQ, Winget manifests). No licence key or activation step exists.
 
-## Stage 7 — Updating, repairing and uninstalling
+## Stage 7 — Updating and repairing
 
 - **Update:** run a newer `Nodal-Setup-<version>.exe` over the existing installation. Your presets in
   `config.toml` are preserved.
 - **Repair:** run the same installer again and choose the same destination.
-- **Clean uninstall (recommended):** right-click the tray icon and choose **Clean uninstall**. Nodal
-  lists exactly what it will do, asks for confirmation, and then performs every step in order:
 
-  | Step | Action |
-  | --- | --- |
-  | 1 | Restores the automatic (DHCP) resolvers on **all** network adapters |
-  | 2 | Removes the `Nodal` startup entry from `HKCU\...\CurrentVersion\Run` |
-  | 3 | Removes the privileged worker scheduled task `Nodal` |
-  | 4 | Deletes `%LOCALAPPDATA%\Nodal\` and `%USERPROFILE%\.config\nodal\` |
-  | 5 | Runs the bundled uninstaller, which removes the files, shortcuts and the *Installed apps* entry |
-
-  Only objects created by Nodal are touched: other applications, drivers, registry keys and the
-  Windows firewall configuration are left untouched. Windows asks for administrator approval through
-  the standard UAC dialog when it is needed; declining it cancels the whole operation and changes
-  nothing.
-- **Uninstall from Windows:** *Settings → Apps → Installed apps → Nodal → Uninstall*, or the Start
-  menu entry *Uninstall Nodal*. This path restores DHCP DNS and removes the scheduled task and the
-  startup entry as well; it asks whether to delete your configuration and DNS presets.
-- **Portable copy:** `nodal.exe` was never installed, so *Clean uninstall* removes the DNS overrides,
-  the task, the startup entry and the settings, and then tells you which file to delete. No uninstall
-  entry exists in *Installed apps* to remove.
-- **Command line equivalents:** `nodal.exe --clean-uninstall` (add `--yes` to skip the confirmation
-  prompt) and `nodal.exe --reset-dns` (only restore automatic DNS).
+Removal is covered at the end of this guide: [Uninstall](#uninstall).
 
 ## Stage 8 — Build and verify from source (optional)
+
+Requires Go 1.21+ and, for the installer, Inno Setup 6.3+.
 
 ```powershell
 git clone https://github.com/nodal/dns-switcher
 cd dns-switcher
-.\build.ps1                 # produces bin\nodal.exe and dist\Nodal-Setup-<version>.exe
-.\build.ps1 -SkipInstaller  # executable only
+
+# Publisher metadata (goversioninfo + cmd\nodal\versioninfo.json -> resource.syso)
+go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+go generate ./cmd/nodal
+
+# Executable (GUI subsystem, stripped)
+go build -trimpath -ldflags "-H windowsgui -s -w" -o bin\nodal.exe ./cmd/nodal
+
+# Installer -> dist\Nodal-Setup-<version>.exe
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DMyAppVersion=1.0.0 installer\setup.iss
 ```
 
-`build.ps1` requires Go 1.21+ and, for the installer, Inno Setup 6.3+. It runs
-`go generate ./cmd/nodal`, which uses `goversioninfo` and `cmd\nodal\versioninfo.json` to embed the
-publisher name, product description and copyright into `nodal.exe`.
+`go generate ./cmd/nodal` embeds the publisher name, product description and copyright into
+`nodal.exe`. Releases are produced by CI (`.github/workflows/release.yml`) with the same commands.
 
 Confirm the embedded publisher metadata after any build:
 
@@ -168,9 +150,6 @@ Confirm the embedded publisher metadata after any build:
 | DNS switch fails with an elevation error | Approve the UAC prompt so the privileged worker task can be registered, or reinstall with the all-users option and accept the elevation prompt. |
 | Publisher missing in file properties | The build ran without `goversioninfo`. Run `go generate ./cmd/nodal` before `go build` (see Stage 8). |
 | Antivirus flags the executable | Uncommon but reported for unsigned Go binaries. The source is public; build it yourself (Stage 8) and compare the hash, or add an exclusion. |
-| DNS still points at a custom provider after uninstall | The reset needs administrator rights; approve the UAC prompt. Re-run `nodal.exe --reset-dns` from an elevated prompt, or select *Obtain DNS server address automatically* in the adapter properties. |
-| *Clean uninstall* reported nothing and the app is still running | The UAC prompt was declined, so nothing was changed. Run *Clean uninstall* again and approve the prompt. |
-| Task `Nodal` survives a per-user uninstall | A per-user uninstall is not elevated, so the uninstaller prints the manual command. Use *Clean uninstall* instead, or run `schtasks /delete /tn Nodal /f` from an elevated prompt. |
 
 ## Cost, rights and data protection
 
@@ -178,4 +157,55 @@ Confirm the embedded publisher metadata after any build:
 - No telemetry, analytics, accounts, or remote servers are involved. See `PRIVACY_POLICY.md`.
 - The system capabilities Nodal uses are enumerated in `TERMS_AND_POLICY.md` §3, and the complete
   erasure steps are in `PRIVACY_POLICY.md` §6.
+
+## Uninstall
+
+Three ways out. All of them hand DNS back to Windows before anything is deleted.
+
+### Clean uninstall (recommended)
+
+Right-click the tray icon → **Clean uninstall**. Nodal lists exactly what it will do, asks for
+confirmation, and then performs every step in order:
+
+| Step | Action |
+| --- | --- |
+| 1 | Restores the automatic (DHCP) resolvers on **all** network adapters |
+| 2 | Removes the `Nodal` startup entry from `HKCU\...\CurrentVersion\Run` |
+| 3 | Removes the privileged worker scheduled task `Nodal` |
+| 4 | Deletes `%LOCALAPPDATA%\Nodal\` and `%USERPROFILE%\.config\nodal\` |
+| 5 | Runs the bundled uninstaller, which removes the files, shortcuts and the *Installed apps* entry |
+
+Only objects created by Nodal are touched: other applications, drivers, registry keys and the
+Windows firewall configuration are left untouched. Windows asks for administrator approval through
+the standard UAC dialog when it is needed; declining it cancels the whole operation and changes
+nothing.
+
+### From Windows
+
+*Settings → Apps → Installed apps → Nodal → Uninstall*, or the Start menu entry *Uninstall Nodal*.
+This path restores DHCP DNS and removes the scheduled task and the startup entry as well; it asks
+whether to delete your configuration and DNS presets.
+
+### Portable copy
+
+`nodal.exe` was never installed, so *Clean uninstall* removes the DNS overrides, the task, the
+startup entry and the settings, and then tells you which file to delete. No uninstall entry exists
+in *Installed apps* to remove.
+
+### Command line
+
+- `nodal.exe --clean-uninstall` — reverses every change; add `--yes` to skip the confirmation prompt.
+- `nodal.exe --reset-dns` — restores automatic DNS only, keeps the application.
+- `unins000.exe /VERYSILENT /SUPPRESSMSGBOXES` — unattended removal (see Stage 6). The uninstaller's
+  questions are suppressed and answered with the clean-removal default (yes), so it still restores
+  automatic (DHCP) DNS on every adapter and removes the scheduled task, the startup entry and the
+  configuration folder — message boxes are never left waiting for a human.
+
+### When the uninstall does not finish
+
+| Symptom | Cause / fix |
+| --- | --- |
+| DNS still points at a custom provider after uninstall | The reset needs administrator rights; approve the UAC prompt. Re-run `nodal.exe --reset-dns` from an elevated prompt, or select *Obtain DNS server address automatically* in the adapter properties. |
+| *Clean uninstall* reported nothing and the app is still running | The UAC prompt was declined, so nothing was changed. Run *Clean uninstall* again and approve the prompt. |
+| Task `Nodal` survives a per-user uninstall | A per-user uninstall is not elevated, so the uninstaller prints the manual command. Use *Clean uninstall* instead, or run `schtasks /delete /tn Nodal /f` from an elevated prompt. |
 

@@ -15,7 +15,7 @@ Nodal is designed with the highest standards of data minimization and consumer p
 
 ## 2. Information Handled Locally
 The application only reads and writes the following items stored on your physical device:
-1. **`%USERPROFILE%\.config\nodal\config.toml`**: Contains your DNS profile names and IP addresses (e.g., Cloudflare, AdGuard, DHCP).
+1. **`%USERPROFILE%\.config\nodal\config.toml`**: Contains your DNS profile names and resolver addresses — the built-in presets and your own custom entries.
 2. **`%LOCALAPPDATA%\Nodal\pending.json` & `result.json`**: Temporary transient IPC files used to pass the selected profile to the background worker during DNS updates.
 3. **Registry Run Key (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`)**: Contains the path to `nodal.exe` solely if autostart is toggled on.
 4. **Network adapter DNS configuration**: The primary/secondary resolver addresses of the adapter you switch. Selecting a profile writes them, selecting **DHCP** clears them again, and uninstalling Nodal restores the resolvers provided by your router automatically.

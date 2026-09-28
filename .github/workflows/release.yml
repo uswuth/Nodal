@@ -54,7 +54,32 @@ jobs:
 
       - name: Build executable and installer
         shell: pwsh
-        run: .\build.ps1 -Version ${{ steps.version.outputs.value }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ steps.version.outputs.value }}'
+          $versionFull = if ($version -match '^\d+\.\d+\.\d+\.\d+$') { $version } else { "$version.0" }
+
+          # Publisher metadata: cmd\nodal\resource.syso from cmd\nodal\versioninfo.json
+          go generate ./cmd/nodal
+
+          # GUI-subsystem executable (no console window)
+          New-Item -ItemType Directory -Force -Path bin | Out-Null
+          go build -trimpath -ldflags "-H windowsgui -s -w" -o bin/nodal.exe ./cmd/nodal
+
+          # Inno Setup 6.3+ installer -> dist\
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe' }
+          if (-not (Test-Path $iscc)) { throw 'ISCC.exe not found. Install Inno Setup 6.3 or newer.' }
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          & $iscc "/DMyAppVersion=$version" "/DMyAppVersionFull=$versionFull" installer\setup.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed with exit code $LASTEXITCODE" }
+
+          # SHA256SUMS.txt (executable + installer)
+          $extra = @(Get-ChildItem dist -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' } | ForEach-Object { $_.FullName })
+          $hashes = foreach ($file in @('bin/nodal.exe') + $extra) {
+            if (Test-Path $file) { "$((Get-FileHash -Algorithm SHA256 $file).Hash.ToLower())  $(Split-Path $file -Leaf)" }
+          }
+          $hashes | Set-Content dist/SHA256SUMS.txt -Encoding ascii
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
