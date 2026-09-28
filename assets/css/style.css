@@ -1,0 +1,286 @@
+/* ============================================================
+   Nodal — GitHub Pages custom styles
+   ============================================================ */
+
+:root {
+  --brand:        #0F6CBD;
+  --brand-dark:   #0B5A9E;
+  --brand-light:  #7FB3E8;
+  --accent:       #3BA0F2;
+  --green:        #22C55E;
+  --red:          #E8792E;
+  --gray-50:      #F8F9FA;
+  --gray-100:     #F1F3F5;
+  --gray-200:     #E9ECEF;
+  --gray-300:     #DEE2E6;
+  --gray-400:     #CED4DA;
+  --gray-500:     #6C757D;
+  --gray-600:     #495057;
+  --gray-700:     #343A40;
+  --gray-800:     #212529;
+  --gray-900:     #1C2833;
+  --radius:        12px;
+  --radius-sm:     6px;
+  --shadow-sm:    0 1px 3px rgba(15,108,189,0.10);
+  --shadow-md:    0 4px 16px rgba(15,108,189,0.12);
+  --shadow-lg:    0 12px 40px rgba(15,108,189,0.18);
+  --max-w:        880px;
+  --transition:   0.2s ease;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  font-size: 17px;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing:  antialiased;
+  -moz-osx-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+               "Helvetica Neue", Arial, sans-serif;
+  color: var(--gray-800);
+  background: var(--gray-50);
+  line-height: 1.65;
+  -webkit-text-rendering: optimizeLegibility;
+}
+
+/* ── Container ── */
+.container {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 3rem 1.5rem 4rem;
+}
+
+/* ── Hero ── */
+.hero {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding-top: 0.5rem;
+}
+
+.hero-img {
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 1.2rem;
+  display: block;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+  padding: 10px;
+  box-shadow: var(--shadow-lg);
+}
+
+.hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 800;
+  color: var(--gray-900);
+  margin: 0 0 0.4rem;
+  letter-spacing: -0.02em;
+}
+
+.hero .subtitle {
+  color: var(--gray-500);
+  font-size: 1.1rem;
+  max-width: 620px;
+  margin: 0 auto 1.6rem;
+  line-height: 1.6;
+}
+
+/* ── Badges ── */
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem 0.75rem;
+  margin-bottom: 2.5rem;
+}
+
+.badge-row img {
+  height: 22px;
+  width: auto;
+}
+
+/* ── Divider ── */
+.rule {
+  border: none;
+  border-top: 1.5px solid var(--gray-200);
+  margin: 2rem 0;
+}
+
+/* ── Section headings ── */
+h2 {
+  font-size: 1.3rem;
+  font-weight: 650;
+  color: var(--gray-800);
+  margin: 2rem 0 0.75rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 2px solid var(--brand);
+  display: inline-block;
+  letter-spacing: -0.01em;
+}
+
+h2:not(:first-child) { margin-top: 2.2rem; }
+
+/* ── Lists ── */
+ul { margin: 0.5rem 0 1rem; padding-left: 1.25rem; }
+
+ul li {
+  margin-bottom: 0.55rem;
+  line-height: 1.6;
+}
+
+ul li::marker {
+  color: var(--brand);
+  font-size: 1.15em;
+}
+
+/* ── Link styling ── */
+a {
+  color: var(--brand);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1.5px solid transparent;
+  transition: border-color var(--transition), color var(--transition);
+}
+
+a:hover {
+  border-bottom-color: var(--brand);
+  color: var(--brand-dark);
+}
+
+/* ── Preview card ── */
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 0.5rem 0 1.5rem;
+}
+
+.preview-card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 1rem 0.8rem;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.preview-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.preview-card h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  margin: 0 0 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.preview-card img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+}
+
+/* ── Inline image style (single) ── */
+.inline-img {
+  max-width: 520px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  display: block;
+  margin: 0.5rem auto;
+}
+
+/* ── Tables ── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0 1.2rem;
+  font-size: 0.95rem;
+}
+
+th, td {
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  border-bottom: 1.5px solid var(--gray-200);
+}
+
+th {
+  font-weight: 600;
+  color: var(--gray-600);
+  background: var(--gray-50);
+}
+
+tbody tr:hover { background: var(--gray-50); }
+
+/* ── Feature grid ── */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin: 0.75rem 0 1.5rem;
+}
+
+.feature-card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 1.2rem 1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.feature-card h3 {
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: var(--brand);
+  margin: 0 0 0.4rem;
+}
+
+.feature-card p {
+  font-size: 0.88rem;
+  color: var(--gray-500);
+  margin: 0;
+  line-height: 1.55;
+}
+
+/* ── Blockquote / callout ── */
+.callout {
+  background: var(--gray-50);
+  border-left: 4px solid var(--brand);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 0.9rem 1.2rem;
+  margin: 1rem 0;
+  font-size: 0.95rem;
+  color: var(--gray-600);
+}
+
+/* ── Footer ── */
+.site-footer {
+  margin-top: 3.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--gray-200);
+  text-align: center;
+  color: var(--gray-500);
+  font-size: 0.85rem;
+}
+
+.site-footer a {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .container { padding: 2rem 1rem 3rem; }
+  .badge-row { gap: 0.4rem 0.5rem; }
+  .badge-row img { height: 18px; }
+  .preview-grid { grid-template-columns: 1fr; }
+}
