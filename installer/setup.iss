@@ -92,9 +92,9 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 [Run]
 ; Stage: privileged worker (scheduled task "Nodal" -> nodal.exe --worker).
 ; Skipped for per-user installs; Nodal then asks for elevation the first time you switch DNS.
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--register-task"; StatusMsg: "Registering the privileged DNS worker..."; Flags: runhidden ignoreerrors; Check: IsAdminInstallMode
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--register-task"; StatusMsg: "Registering the privileged DNS worker..."; Flags: runhidden; Check: IsAdminInstallMode
 ; Stage: autostart preference, persisted to config.toml and the HKCU Run key.
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--enable-autostart"; StatusMsg: "Enabling launch on Windows sign-in..."; Flags: runhidden ignoreerrors; Tasks: startupicon
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--enable-autostart"; StatusMsg: "Enabling launch on Windows sign-in..."; Flags: runhidden; Tasks: startupicon
 ; Stage: first launch (tray icon appears next to the clock).
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
