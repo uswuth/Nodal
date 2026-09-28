@@ -1,0 +1,97 @@
+# Nodal release automation: builds the tray executable, embeds publisher metadata,
+# compiles the Inno Setup installer and attaches everything to the GitHub release.
+# Runs entirely on free GitHub-hosted runners.
+
+name: Build and Package Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (major.minor.patch)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $v = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}'.TrimStart('v') } else { '${{ github.event.inputs.version }}' }
+          "value=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Building Nodal $v"
+
+      - name: Install goversioninfo
+        shell: pwsh
+        run: |
+          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+          "$(go env GOPATH)/bin" >> $env:GITHUB_PATH
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build executable and installer
+        shell: pwsh
+        run: .\build.ps1 -Version ${{ steps.version.outputs.value }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nodal-${{ steps.version.outputs.value }}
+          path: |
+            bin/nodal.exe
+            dist/*.exe
+            dist/SHA256SUMS.txt
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            bin/nodal.exe
+            dist/*.exe
+            dist/SHA256SUMS.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          body: |
+            ### Nodal ${{ steps.version.outputs.value }} - free DNS switcher for Windows
+
+            - **Publisher:** Nodal Open Source Project
+            - **Description:** Native Windows 11 DNS Switcher (system tray utility)
+            - **Price:** Free of charge - no subscription, no license key, no account
+            - **License:** MIT
+
+            **Assets**
+            - `Nodal-Setup-${{ steps.version.outputs.value }}.exe` - guided installer (per-user by default, no admin needed)
+            - `nodal.exe` - portable single file
+            - `SHA256SUMS.txt` - verify your download before running it
+
+            **Safety & privacy:** zero telemetry, no data collection, local-only operation.
+            Read [Terms & Rights](${{ github.server_url }}/${{ github.repository }}/blob/main/TERMS_AND_POLICY.md),
+            [Privacy Policy](${{ github.server_url }}/${{ github.repository }}/blob/main/PRIVACY_POLICY.md) and the
+            [installation guide](${{ github.server_url }}/${{ github.repository }}/blob/main/docs/installation.md).
+            Binaries are not code-signed, so SmartScreen may warn - compare the SHA-256 hash or build from source.
+

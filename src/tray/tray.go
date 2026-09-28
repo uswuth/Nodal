@@ -24,16 +24,18 @@ type TrayManager struct {
 	onLeftClick         func()
 	onBeforeContextMenu func()
 	onOpenConfig        func()
+	onCleanUninstall    func()
 	onExit              func()
 }
 
-func NewTrayManager(hwnd windows.HWND, onLeftClick, onBeforeContextMenu, onOpenConfig, onExit func()) *TrayManager {
+func NewTrayManager(hwnd windows.HWND, onLeftClick, onBeforeContextMenu, onOpenConfig, onCleanUninstall, onExit func()) *TrayManager {
 	tm := &TrayManager{
 		hwnd:                hwnd,
 		currentDNS:          "DHCP",
 		onLeftClick:         onLeftClick,
 		onBeforeContextMenu: onBeforeContextMenu,
 		onOpenConfig:        onOpenConfig,
+		onCleanUninstall:    onCleanUninstall,
 		onExit:              onExit,
 	}
 
@@ -46,6 +48,11 @@ func NewTrayManager(hwnd windows.HWND, onLeftClick, onBeforeContextMenu, onOpenC
 				tm.onOpenConfig()
 			} else {
 				_ = config.OpenInEditor()
+			}
+		},
+		func() {
+			if tm.onCleanUninstall != nil {
+				tm.onCleanUninstall()
 			}
 		},
 		func() {
@@ -248,6 +255,10 @@ func (t *TrayManager) showContextMenu() {
 		return
 	}
 
+	t.fallbackNativeMenu(pt)
+}
+
+func (t *TrayManager) fallbackNativeMenu(pt winapi.POINT) {
 	hMenu := winapi.CreatePopupMenu()
 	if hMenu == 0 {
 		return
@@ -255,14 +266,16 @@ func (t *TrayManager) showContextMenu() {
 	defer winapi.DestroyMenu(hMenu)
 
 	const (
-		idFlushDNS   = 1001
-		idOpenConfig = 1002
-		idExit       = 1003
+		idFlushDNS       = 1001
+		idOpenConfig     = 1002
+		idExit           = 1003
+		idCleanUninstall = 1004
 	)
 
 	winapi.AppendMenu(hMenu, winapi.MF_STRING, idFlushDNS, "Flush DNS cache")
 	winapi.AppendMenu(hMenu, winapi.MF_STRING, idOpenConfig, "Open configuration")
 	winapi.AppendMenu(hMenu, winapi.MF_SEPARATOR, 0, "")
+	winapi.AppendMenu(hMenu, winapi.MF_STRING, idCleanUninstall, "Clean uninstall")
 	winapi.AppendMenu(hMenu, winapi.MF_STRING, idExit, "Exit Nodal")
 
 	// Apply dark/light theme to owner window so Windows renders native Win11 popup menu
@@ -297,6 +310,11 @@ func (t *TrayManager) showContextMenu() {
 			t.onOpenConfig()
 		} else {
 			_ = config.OpenInEditor()
+		}
+	case idCleanUninstall:
+		// Run off the message thread: the flow waits for UAC and for the elevated instance.
+		if handler := t.onCleanUninstall; handler != nil {
+			go handler()
 		}
 	case idExit:
 		if t.onExit != nil {

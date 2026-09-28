@@ -1,7 +1,10 @@
 package autostart
 
 import (
+	"errors"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"golang.org/x/sys/windows/registry"
 )
@@ -47,4 +50,29 @@ func IsEnabled() bool {
 
 	_, _, err = k.GetStringValue(valueName)
 	return err == nil
+}
+
+// Remove deletes the startup entry, but only while it still refers to the given executable.
+// A value with the same name that belongs to another application is therefore never touched.
+func Remove(exePath string) error {
+	k, err := registry.OpenKey(registry.CURRENT_USER, runKeyPath, registry.SET_VALUE|registry.QUERY_VALUE)
+	if err != nil {
+		return err
+	}
+	defer k.Close()
+
+	current, _, err := k.GetStringValue(valueName)
+	if err != nil {
+		return nil
+	}
+
+	target := strings.ToLower(filepath.Base(exePath))
+	if target == "" || strings.ToLower(filepath.Base(strings.Trim(current, `"`))) != target {
+		return nil
+	}
+
+	if err := k.DeleteValue(valueName); err != nil && !errors.Is(err, registry.ErrNotExist) {
+		return err
+	}
+	return nil
 }

@@ -370,6 +370,115 @@ func ApplyProfile(profile config.DNSProfile) error {
 	return nil
 }
 
+// GetAllAdapters lists every IPv4 interface except loopback, together with the DNS servers
+// currently assigned to it. Unlike GetActiveAdapter it does not pick a single winner, so it also
+// covers adapters that are currently disconnected but still carry a static override.
+func GetAllAdapters() ([]*AdapterInfo, error) {
+	const (
+		GAA_FLAG_INCLUDE_GATEWAYS = 0x0080
+		IF_TYPE_SOFTWARE_LOOPBACK = 24
+	)
+
+	var size uint32 = 16384
+	for {
+		buf := make([]byte, size)
+		pAddresses := (*windows.IpAdapterAddresses)(unsafe.Pointer(&buf[0]))
+		err := windows.GetAdaptersAddresses(
+			windows.AF_INET,
+			GAA_FLAG_INCLUDE_GATEWAYS,
+			0,
+			pAddresses,
+			&size,
+		)
+		if err == nil {
+			var adapters []*AdapterInfo
+			for curr := pAddresses; curr != nil; curr = curr.Next {
+				if curr.IfType == IF_TYPE_SOFTWARE_LOOPBACK {
+					continue
+				}
+
+				guidStr := windows.BytePtrToString(curr.AdapterName)
+				guid, err := windows.GUIDFromString(guidStr)
+				if err != nil {
+					continue
+				}
+
+				var dnsList []string
+				for dnsNode := curr.FirstDnsServerAddress; dnsNode != nil; dnsNode = dnsNode.Next {
+					if dnsNode.Address.Sockaddr != nil {
+						sa := (*windows.RawSockaddr)(unsafe.Pointer(dnsNode.Address.Sockaddr))
+						if sa.Family == windows.AF_INET {
+							sa4 := (*windows.RawSockaddrInet4)(unsafe.Pointer(dnsNode.Address.Sockaddr))
+							ip := net.IPv4(sa4.Addr[0], sa4.Addr[1], sa4.Addr[2], sa4.Addr[3])
+							dnsList = append(dnsList, ip.String())
+						}
+					}
+				}
+
+				adapters = append(adapters, &AdapterInfo{
+					GUID:         guid,
+					GUIDString:   guidStr,
+					FriendlyName: windows.UTF16PtrToString(curr.FriendlyName),
+					Description:  windows.UTF16PtrToString(curr.Description),
+					IfType:       curr.IfType,
+					Metric:       curr.Ipv4Metric,
+					DNSServers:   dnsList,
+				})
+			}
+			return adapters, nil
+		}
+
+		if errors.Is(err, windows.ERROR_BUFFER_OVERFLOW) {
+			size *= 2
+			continue
+		}
+		return nil, fmt.Errorf("failed to query network adapters: %w", err)
+	}
+}
+
+// ResetAllToDHCP clears the static DNS override on every adapter so Windows hands the resolvers
+// back to DHCP. Used by the uninstaller to leave the machine as it was before Nodal was installed.
+func ResetAllToDHCP() error {
+	adapters, err := GetAllAdapters()
+	if err != nil {
+		return err
+	}
+
+	var failures []string
+	for _, adapter := range adapters {
+		if err := resetAdapterToDHCP(adapter); err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", adapter.DisplayName(), err))
+		}
+	}
+
+	winapi.DnsFlushResolverCache()
+
+	if len(failures) > 0 {
+		return fmt.Errorf("failed to restore automatic DNS on: %s", strings.Join(failures, "; "))
+	}
+	return nil
+}
+
+func resetAdapterToDHCP(adapter *AdapterInfo) error {
+	var settings winapi.DNS_INTERFACE_SETTINGS
+	settings.Version = winapi.DNS_INTERFACE_SETTINGS_VERSION1
+	settings.Flags = winapi.DNS_SETTING_NAMESERVER
+	// A nil NameServer clears the static override, reverting the interface to DHCP.
+	settings.NameServer = nil
+
+	if res := winapi.SetInterfaceDnsSettings(&adapter.GUID, &settings); res != 0 {
+		return fmt.Errorf("SetInterfaceDnsSettings failed with code 0x%X (error %d)", res, res)
+	}
+
+	// Mirror the change in the Windows Settings GUI and drop any IPv6 override as well.
+	for _, family := range []string{"ipv4", "ipv6"} {
+		cmd := exec.Command("netsh.exe", "interface", family, "set", "dnsservers", fmt.Sprintf("name=%s", adapter.FriendlyName), "source=dhcp")
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		_ = cmd.Run()
+	}
+	return nil
+}
+
 // DetectCurrentProfile matches current active adapter DNS servers with defined profiles
 func DetectCurrentProfile(profiles []config.DNSProfile) string {
 	adapter, err := GetActiveAdapter()

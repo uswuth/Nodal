@@ -1,3 +1,5 @@
+//go:generate goversioninfo
+
 package main
 
 import (
@@ -7,9 +9,11 @@ import (
 	"os"
 	"runtime"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"nodal/src/autostart"
+	"nodal/src/cleanup"
 	"nodal/src/config"
 	"nodal/src/dns"
 	"nodal/src/elevation"
@@ -34,12 +38,21 @@ var (
 
 const (
 	msgClassName = "NodalMsgHostClass"
+
+	// elevatedWaitTimeout bounds how long an instance waits for its elevated counterpart,
+	// so a crashed helper can never block the uninstaller or the tray application forever.
+	elevatedWaitTimeout = 60 * time.Second
 )
 
 func main() {
 	// Parse CLI flags
 	isWorker := flag.Bool("worker", false, "Internal elevated worker to apply DNS")
 	isRegisterTask := flag.Bool("register-task", false, "Internal elevated registration of scheduled task")
+	enableAutostart := flag.Bool("enable-autostart", false, "Enable launch on Windows sign-in, then exit")
+	disableAutostart := flag.Bool("disable-autostart", false, "Disable launch on Windows sign-in, then exit")
+	resetDNS := flag.Bool("reset-dns", false, "Restore automatic (DHCP) DNS on all adapters, then exit")
+	cleanUninstall := flag.Bool("clean-uninstall", false, "Remove Nodal, its settings and its DNS changes, then exit")
+	assumeYes := flag.Bool("yes", false, "Skip the clean uninstall confirmation prompt")
 	flag.Parse()
 
 	// 1. Elevated worker execution
@@ -57,7 +70,25 @@ func main() {
 		return
 	}
 
-	// 3. Single Instance Guard (Local mutex)
+	// 3. Installer-driven autostart preference (persisted so it survives the first launch)
+	if *enableAutostart || *disableAutostart {
+		os.Exit(setAutostartPreference(*enableAutostart))
+		return
+	}
+
+	// 4. Restore automatic (DHCP-provided) DNS on every adapter
+	if *resetDNS {
+		os.Exit(runResetDNS())
+		return
+	}
+
+	// 5. Clean uninstall: reverse every Nodal change, then remove the application
+	if *cleanUninstall {
+		os.Exit(runCleanUninstall(*assumeYes))
+		return
+	}
+
+	// 6. Single Instance Guard (Local mutex)
 	mutexName, _ := windows.UTF16PtrFromString("Local\\Nodal_SingleInstance_Mutex")
 	hMutex, err := windows.CreateMutex(nil, false, mutexName)
 	if errors.Is(err, windows.ERROR_ALREADY_EXISTS) {
@@ -71,7 +102,7 @@ func main() {
 	}
 	defer windows.CloseHandle(hMutex)
 
-	// 4. Load configuration & sync autostart
+	// 7. Load configuration & sync autostart
 	cfg, _ := config.LoadConfig()
 	if cfg != nil {
 		_ = autostart.Sync(cfg.Autostart)
@@ -86,17 +117,17 @@ func main() {
 	// AllowDark = 1; must be called before any HWND is created.
 	winapi.SetPreferredAppMode(1)
 
-	// 5. Register TaskbarCreated message to survive Explorer restarts
+	// 8. Register TaskbarCreated message to survive Explorer restarts
 	wmTaskbarCreatedMsg = winapi.RegisterWindowMessage("TaskbarCreated")
 
-	// 6. Create hidden message host window
+	// 9. Create hidden message host window
 	if err := createMessageHostWindow(); err != nil {
 		fmt.Fprintf(os.Stderr, "createMessageHostWindow err: %v\n", err)
 		os.Exit(1)
 		return
 	}
 
-	// 7. Initialise Floater flyout panel
+	// 10. Initialise Floater flyout panel
 	var errFloater error
 	floaterWnd, errFloater = floater.NewFloater(
 		func(activeProfile string, uacAlert bool) {
@@ -114,7 +145,7 @@ func main() {
 		return
 	}
 
-	// 8. Initialise Tray Icon
+	// 11. Initialise Tray Icon
 	trayMgr = tray.NewTrayManager(
 		msgHwnd,
 		func() {
@@ -133,6 +164,10 @@ func main() {
 		func() {
 			// Right-click context menu "Open config"
 			_ = config.OpenInEditor()
+		},
+		func() {
+			// Right-click context menu "Clean uninstall"
+			runCleanUninstall(false)
 		},
 		func() {
 			// Right-click context menu "Exit"
@@ -161,7 +196,7 @@ func main() {
 	}
 	defer trayMgr.Remove()
 
-	// 9. Win32 Message Loop
+	// 12. Win32 Message Loop
 	var msg winapi.MSG
 	for {
 		r := winapi.GetMessage(&msg, 0, 0, 0)
@@ -230,4 +265,122 @@ func msgWndProc(hwnd windows.HWND, msg uint32, wParam, lParam uintptr) uintptr {
 		}
 	}
 	return winapi.DefWindowProc(hwnd, msg, wParam, lParam)
+}
+
+// setAutostartPreference persists the autostart flag to config.toml and mirrors it
+// into the registry Run key, so an installer-selected choice survives the first launch.
+func setAutostartPreference(enabled bool) int {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "load config err: %v\n", err)
+	}
+	if cfg == nil {
+		cfg = config.DefaultConfig()
+	}
+
+	cfg.Autostart = enabled
+	if err := config.SaveConfig(cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "save config err: %v\n", err)
+		return 1
+	}
+	if err := autostart.Sync(enabled); err != nil {
+		fmt.Fprintf(os.Stderr, "sync autostart err: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// runResetDNS restores automatic (DHCP-provided) DNS on every adapter, elevating when the caller
+// is not already running with administrative rights. The uninstaller invokes it before deleting
+// any files, so the elevated work is always finished when this process exits.
+func runResetDNS() int {
+	if !elevation.IsElevated() {
+		if err := elevation.RunSelfElevatedAndWait("--reset-dns", elevatedWaitTimeout); err != nil {
+			fmt.Fprintf(os.Stderr, "elevation err: %v\n", err)
+			return 2
+		}
+		return 0
+	}
+
+	err := dns.ResetAllToDHCP()
+	elevation.SignalElevatedDone()
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "reset DNS err: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// runCleanUninstall reverses every change Nodal made to the machine and then removes the
+// application itself. Work that needs administrative rights is handed to an elevated instance.
+func runCleanUninstall(assumeYes bool) int {
+	if !assumeYes && !confirmCleanUninstall() {
+		return 0
+	}
+
+	if !elevation.IsElevated() {
+		err := elevation.RunSelfElevatedAndWait("--clean-uninstall --yes", elevatedWaitTimeout)
+		if err != nil && !errors.Is(err, elevation.ErrElevationTimeout) {
+			// The consent prompt was declined or elevation failed, so nothing was changed.
+			if errors.Is(err, elevation.ErrUACCancelled) {
+				showCleanUninstallMessage("Clean uninstall cancelled.\r\n\r\nNothing was changed.")
+			} else {
+				showCleanUninstallMessage("Clean uninstall could not start.\r\n\r\n" + err.Error())
+			}
+			return 2
+		}
+
+		// The elevated instance either finished or runs under another administrator account, whose
+		// temporary folder this process cannot observe. Step aside either way so the uninstaller
+		// can remove the files.
+		if trayMgr != nil {
+			trayMgr.Remove()
+		}
+		return 0
+	}
+
+	report := cleanup.Run(true)
+	if trayMgr != nil {
+		trayMgr.Remove()
+	}
+
+	// Release the waiting instance before showing anything, so it can exit promptly.
+	elevation.SignalElevatedDone()
+
+	if message := report.UserMessage(); message != "" {
+		showCleanUninstallMessage(message)
+	}
+
+	if report.UninstallerPath != "" {
+		if err := cleanup.LaunchUninstaller(report.UninstallerPath); err != nil {
+			showCleanUninstallMessage("The bundled uninstaller could not be started.\r\n\r\n" + err.Error())
+			return 1
+		}
+	}
+	return report.ExitCode()
+}
+
+// confirmCleanUninstall asks the user to approve the destructive clean uninstall.
+func confirmCleanUninstall() bool {
+	message := "Clean uninstall will:\r\n\r\n" +
+		"  -  restore the automatic (DHCP) DNS resolvers on all network adapters\r\n" +
+		"  -  remove the privileged worker scheduled task\r\n" +
+		"  -  remove the Windows startup entry\r\n" +
+		"  -  delete the Nodal settings, saved DNS presets and temporary files\r\n" +
+		"  -  uninstall the application itself\r\n\r\n" +
+		"Nothing else on this PC is modified."
+
+	if !elevation.IsElevated() {
+		message += "\r\n\r\nWindows will next ask for administrator approval."
+	}
+	message += "\r\n\r\nContinue?"
+
+	flags := uint32(winapi.MB_YESNO | winapi.MB_ICONWARNING | winapi.MB_SETFOREGROUND | winapi.MB_TOPMOST)
+	return winapi.MessageBox("Nodal - Clean uninstall", message, flags) == winapi.IDYES
+}
+
+func showCleanUninstallMessage(message string) {
+	flags := uint32(winapi.MB_OK | winapi.MB_ICONINFORMATION | winapi.MB_SETFOREGROUND | winapi.MB_TOPMOST)
+	winapi.MessageBox("Nodal - Clean uninstall", message, flags)
 }

@@ -16,6 +16,42 @@
 
 ---
 
+## Product identity
+
+| | |
+| --- | --- |
+| **Publisher** | Nodal Open Source Project |
+| **Description** | Native Windows 11 DNS Switcher — one-click DNS switching from the system tray |
+| **Version** | 1.0.0 |
+| **Price** | Free of charge — no subscription, trial, license key, or account |
+| **License** | MIT |
+| **Platform** | Windows 10 / 11, 64-bit |
+
+## Install
+
+Download the latest `Nodal-Setup-<version>.exe` from the
+[Releases](https://github.com/nodal/dns-switcher/releases) page, verify its SHA-256 hash against
+`SHA256SUMS.txt`, then run the wizard. It walks through the privacy notice, the license terms, the
+destination folder and optional tasks, and registers the privileged DNS worker. A portable
+`nodal.exe` is published alongside the installer.
+
+Done with it? Right-click the tray icon → **Clean uninstall**. It restores automatic (DHCP) DNS on
+every adapter, removes the scheduled task, the startup entry, your presets and the app itself, and
+touches nothing else on the PC.
+
+Full stage-by-stage instructions, unattended-install switches and uninstall details:
+[Installation guide](docs/installation.md).
+
+## Build
+
+```powershell
+.\build.ps1                 # bin\nodal.exe + dist\Nodal-Setup-<version>.exe
+.\build.ps1 -SkipInstaller  # executable only
+```
+
+Requires Go 1.21 or newer, plus Inno Setup 6.3 or newer for the installer. The build embeds the
+publisher name, product description and version from `cmd\nodal\versioninfo.json`.
+
 ## Why Nodal?
 
 - **Fastest way to switch DNS on Windows** — one tray click, no Settings maze, no admin prompts every time.
@@ -41,4 +77,13 @@ name = "Cloudflare"
 primary = "1.1.1.1"
 secondary = "1.0.0.1"
 ```
+
+## License & Policies
+
+Nodal is **free of charge** and released under the [MIT License](LICENSE). It contains no telemetry,
+makes no network requests of its own, and keeps all data on your machine.
+
+- [Terms of Service & EULA](TERMS_AND_POLICY.md) — license, system rights Nodal uses, warranty disclaimer, third-party notices
+- [Privacy Policy](PRIVACY_POLICY.md) — what stays local, what is never collected, how to erase everything
+- [Installation guide](docs/installation.md) — download, verify, install, update, uninstall
 

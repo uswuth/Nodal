@@ -33,28 +33,30 @@ type MenuItem struct {
 }
 
 type MenuFlyout struct {
-	mu           sync.Mutex
-	hwnd         windows.HWND
-	visible      bool
-	dpi          uint32
-	isDark       bool
-	hoveredIndex int
-	openTime     time.Time
-	items        []MenuItem
-	onFlushDNS   func()
-	onOpenConfig func()
-	onExit       func()
+	mu               sync.Mutex
+	hwnd             windows.HWND
+	visible          bool
+	dpi              uint32
+	isDark           bool
+	hoveredIndex     int
+	openTime         time.Time
+	items            []MenuItem
+	onFlushDNS       func()
+	onOpenConfig     func()
+	onCleanUninstall func()
+	onExit           func()
 }
 
 var globalMenu *MenuFlyout
 
-func NewMenuFlyout(onFlushDNS, onOpenConfig, onExit func()) (*MenuFlyout, error) {
+func NewMenuFlyout(onFlushDNS, onOpenConfig, onCleanUninstall, onExit func()) (*MenuFlyout, error) {
 	m := &MenuFlyout{
-		dpi:          96,
-		hoveredIndex: -1,
-		onFlushDNS:   onFlushDNS,
-		onOpenConfig: onOpenConfig,
-		onExit:       onExit,
+		dpi:              96,
+		hoveredIndex:     -1,
+		onFlushDNS:       onFlushDNS,
+		onOpenConfig:     onOpenConfig,
+		onCleanUninstall: onCleanUninstall,
+		onExit:           onExit,
 	}
 
 	m.items = []MenuItem{
@@ -80,6 +82,16 @@ func NewMenuFlyout(onFlushDNS, onOpenConfig, onExit func()) (*MenuFlyout, error)
 		},
 		{
 			Type: ItemSeparator,
+		},
+		{
+			Type:     ItemAction,
+			Text:     "Clean uninstall",
+			IconKind: "uninstall",
+			OnClick: func() {
+				if m.onCleanUninstall != nil {
+					m.onCleanUninstall()
+				}
+			},
 		},
 		{
 			Type:     ItemAction,
@@ -163,13 +175,7 @@ func (m *MenuFlyout) updateTheme() {
 	if cfg, err := config.LoadConfig(); err == nil && cfg != nil {
 		themeSetting = cfg.EffectiveTheme()
 	}
-	if themeSetting == "dark" {
-		m.isDark = true
-	} else if themeSetting == "light" {
-		m.isDark = false
-	} else {
-		m.isDark = !winapi.GetAppsUseLightTheme()
-	}
+	m.isDark = config.ResolveIsDark(themeSetting)
 	winapi.ApplyWindows11Styling(m.hwnd, m.isDark)
 }
 
@@ -227,103 +233,9 @@ func (m *MenuFlyout) hideUnlocked() {
 }
 
 func (m *MenuFlyout) repositionWindow(cursorPt winapi.POINT) {
-	// Update DPI first
 	m.dpi = winapi.GetDpiForHwnd(m.hwnd)
 	w, h := m.calculateDimensions()
-
-	anchorPt := cursorPt
-	var iconRect winapi.RECT
-	hasIconRect := false
-
-	// Query the exact screen coordinates of the tray icon so flicking the mouse quickly won't throw off positioning.
-	if rc, ok := winapi.GetTrayIconRect(0); ok {
-		iconRect = rc
-		hasIconRect = true
-		anchorPt = winapi.POINT{
-			X: rc.Left + rc.Width()/2,
-			Y: rc.Top + rc.Height()/2,
-		}
-	}
-
-	hMon := winapi.MonitorFromPoint(anchorPt, winapi.MONITOR_DEFAULTTONEAREST)
-	var mi winapi.MONITORINFO
-	winapi.GetMonitorInfo(hMon, &mi)
-	workArea := mi.RcWork
-	monArea := mi.RcMonitor
-
-	margin := winapi.ScaleDpi(4, m.dpi)
-
-	hTaskbar := winapi.FindWindow("Shell_TrayWnd", "")
-	var rcTaskbar winapi.RECT
-	hasTaskbar := hTaskbar != 0 && winapi.GetWindowRect(hTaskbar, &rcTaskbar)
-
-	var posX, posY int32
-
-	if hasIconRect {
-		if hasTaskbar && rcTaskbar.Bottom > monArea.Top && rcTaskbar.Top < monArea.Bottom {
-			if rcTaskbar.Top > monArea.Top+monArea.Height()/2 {
-				// Taskbar at BOTTOM
-				posX = anchorPt.X - w/2
-				posY = iconRect.Top - h - margin
-			} else if rcTaskbar.Bottom <= monArea.Top+monArea.Height()/2 {
-				// Taskbar at TOP
-				posX = anchorPt.X - w/2
-				posY = iconRect.Bottom + margin
-			} else if rcTaskbar.Left > monArea.Left+monArea.Width()/2 {
-				// Taskbar at RIGHT
-				posX = iconRect.Left - w - margin
-				posY = anchorPt.Y - h/2
-			} else {
-				// Taskbar at LEFT
-				posX = iconRect.Right + margin
-				posY = anchorPt.Y - h/2
-			}
-		} else {
-			posX = anchorPt.X - w/2
-			posY = iconRect.Top - h - margin
-		}
-	} else if hasTaskbar && rcTaskbar.Bottom > monArea.Top && rcTaskbar.Top < monArea.Bottom {
-		if rcTaskbar.Top > monArea.Top+monArea.Height()/2 {
-			// Taskbar at BOTTOM
-			posX = anchorPt.X - w/2
-			posY = rcTaskbar.Top - h - margin
-		} else if rcTaskbar.Bottom <= monArea.Top+monArea.Height()/2 {
-			// Taskbar at TOP
-			posX = anchorPt.X - w/2
-			posY = rcTaskbar.Bottom + margin
-		} else if rcTaskbar.Left > monArea.Left+monArea.Width()/2 {
-			// Taskbar at RIGHT
-			posX = rcTaskbar.Left - w - margin
-			posY = anchorPt.Y - h/2
-		} else {
-			// Taskbar at LEFT
-			posX = rcTaskbar.Right + margin
-			posY = anchorPt.Y - h/2
-		}
-	} else if workArea.Bottom < monArea.Bottom {
-		posX = anchorPt.X - w/2
-		posY = workArea.Bottom - h - margin
-	} else if workArea.Top > monArea.Top {
-		posX = anchorPt.X - w/2
-		posY = workArea.Top + margin
-	} else {
-		posX = anchorPt.X - w/2
-		posY = monArea.Bottom - h - margin
-	}
-
-	if posX+w > workArea.Right-margin {
-		posX = workArea.Right - w - margin
-	}
-	if posX < workArea.Left+margin {
-		posX = workArea.Left + margin
-	}
-	if posY+h > workArea.Bottom-margin {
-		posY = workArea.Bottom - h - margin
-	}
-	if posY < workArea.Top+margin {
-		posY = workArea.Top + margin
-	}
-
+	posX, posY := winapi.CalculateFlyoutPosition(w, h, m.dpi, cursorPt)
 	winapi.SetWindowPos(m.hwnd, winapi.HWND_TOPMOST, posX, posY, w, h, winapi.SWP_SHOWWINDOW)
 }
 
@@ -572,6 +484,8 @@ func (m *MenuFlyout) paint(hdc windows.Handle) {
 			glyph = "\uE72C" // Refresh / Sync
 		case "config":
 			glyph = "\uE713" // Settings Gear
+		case "uninstall":
+			glyph = "\uE74D" // Delete
 		case "exit":
 			glyph = "\uE7E8" // Power
 		}

@@ -130,4 +130,14 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 }
 
+func TestResolveIsDark(t *testing.T) {
+	if !ResolveIsDark("dark") {
+		t.Errorf("expected ResolveIsDark('dark') to be true")
+	}
+	if ResolveIsDark("light") {
+		t.Errorf("expected ResolveIsDark('light') to be false")
+	}
+}
+
+
 

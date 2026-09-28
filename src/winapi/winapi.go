@@ -17,8 +17,6 @@ var (
 	gdi32    = windows.NewLazyDLL("gdi32.dll")
 	iphlpapi = windows.NewLazyDLL("iphlpapi.dll")
 	dnsapi   = windows.NewLazyDLL("dnsapi.dll")
-	kernel32 = windows.NewLazyDLL("kernel32.dll")
-	ntdll    = windows.NewLazyDLL("ntdll.dll")
 	uxtheme  = windows.NewLazyDLL("uxtheme.dll")
 
 	// user32 procs
@@ -34,7 +32,6 @@ var (
 	procGetClientRect          = user32.NewProc("GetClientRect")
 	procGetCursorPos           = user32.NewProc("GetCursorPos")
 	procSetForegroundWindow    = user32.NewProc("SetForegroundWindow")
-	procGetForegroundWindow    = user32.NewProc("GetForegroundWindow")
 	procTrackMouseEvent        = user32.NewProc("TrackMouseEvent")
 	procBeginPaint             = user32.NewProc("BeginPaint")
 	procEndPaint               = user32.NewProc("EndPaint")
@@ -50,7 +47,6 @@ var (
 	procMonitorFromPoint       = user32.NewProc("MonitorFromPoint")
 	procGetMonitorInfoW        = user32.NewProc("GetMonitorInfoW")
 	procFindWindowW            = user32.NewProc("FindWindowW")
-	procFindWindowExW          = user32.NewProc("FindWindowExW")
 	procCreateIconIndirect     = user32.NewProc("CreateIconIndirect")
 	procDestroyIcon            = user32.NewProc("DestroyIcon")
 	procRegisterWindowMessageW = user32.NewProc("RegisterWindowMessageW")
@@ -60,11 +56,11 @@ var (
 	procLoadCursorW            = user32.NewProc("LoadCursorW")
 	procSetTimer               = user32.NewProc("SetTimer")
 	procKillTimer              = user32.NewProc("KillTimer")
+	procMessageBoxW            = user32.NewProc("MessageBoxW")
 
 	// shell32 procs
 	procShell_NotifyIconW       = shell32.NewProc("Shell_NotifyIconW")
 	procShell_NotifyIconGetRect = shell32.NewProc("Shell_NotifyIconGetRect")
-	procSHAppBarMessage         = shell32.NewProc("SHAppBarMessage")
 
 	// dwmapi procs
 	procDwmSetWindowAttribute = dwmapi.NewProc("DwmSetWindowAttribute")
@@ -73,7 +69,6 @@ var (
 	// gdi32 procs
 	procCreateBitmap           = gdi32.NewProc("CreateBitmap")
 	procCreateCompatibleDC     = gdi32.NewProc("CreateCompatibleDC")
-	procCreateCompatibleBitmap = gdi32.NewProc("CreateCompatibleBitmap")
 	procCreateDIBSection       = gdi32.NewProc("CreateDIBSection")
 	procSelectObject           = gdi32.NewProc("SelectObject")
 	procDeleteObject           = gdi32.NewProc("DeleteObject")
@@ -89,14 +84,9 @@ var (
 	procFillRgn                = gdi32.NewProc("FillRgn")
 	procFrameRgn               = gdi32.NewProc("FrameRgn")
 
-
 	// iphlpapi & dnsapi procs
 	procSetInterfaceDnsSettings = iphlpapi.NewProc("SetInterfaceDnsSettings")
-	procGetInterfaceDnsSettings = iphlpapi.NewProc("GetInterfaceDnsSettings")
 	procDnsFlushResolverCache   = dnsapi.NewProc("DnsFlushResolverCache")
-
-	// ntdll procs
-	procRtlGetVersion = ntdll.NewProc("RtlGetVersion")
 
 	// uxtheme procs
 	procSetWindowTheme = uxtheme.NewProc("SetWindowTheme")
@@ -191,11 +181,6 @@ func GetCursorPos(pt *POINT) bool {
 func SetForegroundWindow(hwnd windows.HWND) bool {
 	r1, _, _ := procSetForegroundWindow.Call(uintptr(hwnd))
 	return r1 != 0
-}
-
-func GetForegroundWindow() windows.HWND {
-	r1, _, _ := procGetForegroundWindow.Call()
-	return windows.HWND(r1)
 }
 
 func TrackMouse(tme *TRACKMOUSEEVENT) bool {
@@ -309,11 +294,6 @@ func GetTrayIconRect(hwnd windows.HWND) (RECT, bool) {
 	return RECT{}, false
 }
 
-func SHAppBarMessage(message uint32, data *APPBARDATA) uintptr {
-	r1, _, _ := procSHAppBarMessage.Call(uintptr(message), uintptr(unsafe.Pointer(data)))
-	return r1
-}
-
 func MonitorFromPoint(pt POINT, flags uint32) windows.Handle {
 	// In Win64 ABI, 8-byte struct POINT { LONG x, y; } passed by value is packed into a single 64-bit integer register (RCX)
 	packedPt := uintptr(uint32(pt.X)) | (uintptr(uint32(pt.Y)) << 32)
@@ -336,23 +316,6 @@ func FindWindow(className, windowName string) windows.HWND {
 		pWindow, _ = windows.UTF16PtrFromString(windowName)
 	}
 	r1, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(pClass)), uintptr(unsafe.Pointer(pWindow)))
-	return windows.HWND(r1)
-}
-
-func FindWindowEx(parent, childAfter windows.HWND, className, windowName string) windows.HWND {
-	var pClass, pWindow *uint16
-	if className != "" {
-		pClass, _ = windows.UTF16PtrFromString(className)
-	}
-	if windowName != "" {
-		pWindow, _ = windows.UTF16PtrFromString(windowName)
-	}
-	r1, _, _ := procFindWindowExW.Call(
-		uintptr(parent),
-		uintptr(childAfter),
-		uintptr(unsafe.Pointer(pClass)),
-		uintptr(unsafe.Pointer(pWindow)),
-	)
 	return windows.HWND(r1)
 }
 
@@ -384,11 +347,6 @@ func CreateBitmap(nWidth, nHeight int32, nPlanes, nBitCount uint32, lpBits unsaf
 
 func CreateCompatibleDC(hdc windows.Handle) windows.Handle {
 	r1, _, _ := procCreateCompatibleDC.Call(uintptr(hdc))
-	return windows.Handle(r1)
-}
-
-func CreateCompatibleBitmap(hdc windows.Handle, cx, cy int32) windows.Handle {
-	r1, _, _ := procCreateCompatibleBitmap.Call(uintptr(hdc), uintptr(cx), uintptr(cy))
 	return windows.Handle(r1)
 }
 
@@ -753,28 +711,6 @@ func GetLiveAccentColor() (r, g, b uint8) {
 	return 0x0F, 0x6C, 0xBD
 }
 
-// WindowsBuildNumber returns the Windows build number via RtlGetVersion (ntdll).
-// This bypasses the compatibility shim that makes VerifyVersionInfo lie.
-func WindowsBuildNumber() uint32 {
-	type rtlOSVersionInfoEx struct {
-		DwOSVersionInfoSize uint32
-		DwMajorVersion      uint32
-		DwMinorVersion      uint32
-		DwBuildNumber       uint32
-		DwPlatformId        uint32
-		SzCSDVersion        [128]uint16
-		WServicePackMajor   uint16
-		WServicePackMinor   uint16
-		WSuiteMask          uint16
-		WProductType        uint8
-		WReserved           uint8
-	}
-	var info rtlOSVersionInfoEx
-	info.DwOSVersionInfoSize = uint32(unsafe.Sizeof(info))
-	procRtlGetVersion.Call(uintptr(unsafe.Pointer(&info)))
-	return info.DwBuildNumber
-}
-
 var (
 	procSetWindowCompositionAttribute = user32.NewProc("SetWindowCompositionAttribute")
 	procDwmExtendFrameIntoClientArea  = dwmapi.NewProc("DwmExtendFrameIntoClientArea")
@@ -877,18 +813,6 @@ func SetInterfaceDnsSettings(guid *windows.GUID, settings *DNS_INTERFACE_SETTING
 	return uint32(r1)
 }
 
-// GetInterfaceDnsSettings calls iphlpapi.dll GetInterfaceDnsSettings
-func GetInterfaceDnsSettings(guid *windows.GUID, settings *DNS_INTERFACE_SETTINGS) uint32 {
-	if iphlpapi.Load() != nil {
-		return uint32(windows.ERROR_NOT_SUPPORTED)
-	}
-	r1, _, _ := procGetInterfaceDnsSettings.Call(
-		uintptr(unsafe.Pointer(guid)),
-		uintptr(unsafe.Pointer(settings)),
-	)
-	return uint32(r1)
-}
-
 // DnsFlushResolverCache flushes the Windows DNS cache
 func DnsFlushResolverCache() bool {
 	if dnsapi.Load() != nil {
@@ -896,4 +820,24 @@ func DnsFlushResolverCache() bool {
 	}
 	r1, _, _ := procDnsFlushResolverCache.Call()
 	return r1 != 0
+}
+
+// MessageBox shows a modal message box with the given title, text and MB_* flags.
+// It returns the ID* constant of the button the user pressed, or 0 when it could not be shown.
+func MessageBox(title, text string, flags uint32) int32 {
+	pText, err := windows.UTF16PtrFromString(text)
+	if err != nil {
+		return 0
+	}
+	pTitle, err := windows.UTF16PtrFromString(title)
+	if err != nil {
+		return 0
+	}
+	r1, _, _ := procMessageBoxW.Call(
+		0,
+		uintptr(unsafe.Pointer(pText)),
+		uintptr(unsafe.Pointer(pTitle)),
+		uintptr(flags),
+	)
+	return int32(r1)
 }

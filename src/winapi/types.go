@@ -91,16 +91,6 @@ type NOTIFYICONIDENTIFIER struct {
 	GuidItem windows.GUID
 }
 
-// AppBar Types
-type APPBARDATA struct {
-	CbSize           uint32
-	HWnd             windows.HWND
-	UCallbackMessage uint32
-	UEdge            uint32
-	Rc               RECT
-	LParam           uintptr
-}
-
 // Monitor Info
 type MONITORINFO struct {
 	CbSize    uint32
@@ -233,13 +223,6 @@ const (
 	NIN_POPUPOPEN   = WM_USER + 6
 	NIN_POPUPCLOSE  = WM_USER + 7
 
-	// AppBar messages & edges
-	ABM_GETTASKBARPOS = 5
-	ABE_LEFT          = 0
-	ABE_TOP           = 1
-	ABE_RIGHT         = 2
-	ABE_BOTTOM        = 3
-
 	// DWM Window Attributes
 	DWMWA_USE_IMMERSIVE_DARK_MODE   = 20
 	DWMWA_WINDOW_CORNER_PREFERENCE  = 33
@@ -281,6 +264,16 @@ const (
 	// DNS Interface Settings
 	DNS_INTERFACE_SETTINGS_VERSION1 = 1
 	DNS_SETTING_NAMESERVER          = 0x00000002
+
+	// MessageBox flags and return values
+	MB_OK              = 0x00000000
+	MB_YESNO           = 0x00000004
+	MB_ICONWARNING     = 0x00000030
+	MB_ICONINFORMATION = 0x00000040
+	MB_SETFOREGROUND   = 0x00010000
+	MB_TOPMOST         = 0x00040000
+	IDYES              = 6
+	IDNO               = 7
 )
 
 // Stable GUID for Nodal tray icon: {9B4A7E20-3C1E-4E6B-A749-644721D05F2B}

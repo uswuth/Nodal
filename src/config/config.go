@@ -222,7 +222,6 @@ func EnsureSchemaFile() {
 	_ = os.WriteFile(schemaPath, []byte(schemaJSON), 0644)
 }
 
-
 // LoadConfig reads the TOML configuration from %APPDATA%\Nodal\config.toml.
 // If the file does not exist or is empty (0 bytes), it writes the default profiles and returns them.
 // If the file is malformed, it retains and returns the last known good configuration.
@@ -279,16 +278,16 @@ func LoadConfig() (*Config, error) {
 	return &parsed, nil
 }
 
-// MaskIP masks the last 2 octets of an IPv4 address for privacy (e.g. "192.168.1.1" -> "192.168.*.*")
+// MaskIP masks the last 2 octets of an IPv4 address for privacy (e.g. "192.168.1.1" -> "192.168.#.#")
 func MaskIP(ip string) string {
 	if ip == "" {
 		return ""
 	}
 	parts := bytes.Split([]byte(ip), []byte("."))
 	if len(parts) == 4 {
-		return fmt.Sprintf("%s.%s.*.*", parts[0], parts[1])
+		return fmt.Sprintf("%s.%s.#.#", parts[0], parts[1])
 	}
-	return "••••••••"
+	return "########"
 }
 
 // SaveConfig saves the configuration to %APPDATA%\Nodal\config.toml.
@@ -387,4 +386,3 @@ func OpenInEditor() error {
 	}
 	return nil
 }
-

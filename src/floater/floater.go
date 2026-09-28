@@ -183,13 +183,7 @@ func (f *Floater) createWindow() error {
 }
 
 func (f *Floater) updateTheme() {
-	if f.themeSetting == "dark" {
-		f.isDark = true
-	} else if f.themeSetting == "light" {
-		f.isDark = false
-	} else {
-		f.isDark = !winapi.GetAppsUseLightTheme()
-	}
+	f.isDark = config.ResolveIsDark(f.themeSetting)
 	f.accentR, f.accentG, f.accentB = winapi.GetLiveAccentColor()
 	winapi.ApplyWindows11Styling(f.hwnd, f.isDark)
 }
@@ -299,114 +293,13 @@ func (f *Floater) calculateDimensions() (w, h int32) {
 
 // Reposition floater adjacent to tray icon based on active monitor & taskbar edge
 func (f *Floater) repositionWindow() {
-	// Update DPI for this monitor/window first
 	f.dpi = winapi.GetDpiForHwnd(f.hwnd)
 	w, h := f.calculateDimensions()
 
-	var anchorPt winapi.POINT
-	var iconRect winapi.RECT
-	hasIconRect := false
+	var fallbackPt winapi.POINT
+	winapi.GetCursorPos(&fallbackPt)
 
-	// Query the exact screen coordinates of the tray icon so moving the mouse quickly won't throw off positioning.
-	if rc, ok := winapi.GetTrayIconRect(0); ok {
-		iconRect = rc
-		hasIconRect = true
-		anchorPt = winapi.POINT{
-			X: rc.Left + rc.Width()/2,
-			Y: rc.Top + rc.Height()/2,
-		}
-	} else {
-		winapi.GetCursorPos(&anchorPt)
-	}
-
-	// Query the exact monitor containing the tray icon / anchor point
-	hMon := winapi.MonitorFromPoint(anchorPt, winapi.MONITOR_DEFAULTTONEAREST)
-	var mi winapi.MONITORINFO
-	winapi.GetMonitorInfo(hMon, &mi)
-	workArea := mi.RcWork
-	monArea := mi.RcMonitor
-
-	margin := winapi.ScaleDpi(4, f.dpi)
-
-	// Query main taskbar window directly
-	hTaskbar := winapi.FindWindow("Shell_TrayWnd", "")
-	var rcTaskbar winapi.RECT
-	hasTaskbar := hTaskbar != 0 && winapi.GetWindowRect(hTaskbar, &rcTaskbar)
-
-	var posX, posY int32
-
-	if hasIconRect {
-		if hasTaskbar && rcTaskbar.Bottom > monArea.Top && rcTaskbar.Top < monArea.Bottom {
-			if rcTaskbar.Top > monArea.Top+monArea.Height()/2 {
-				// Taskbar is at the BOTTOM
-				posX = anchorPt.X - w/2
-				posY = iconRect.Top - h - margin
-			} else if rcTaskbar.Bottom <= monArea.Top+monArea.Height()/2 {
-				// Taskbar is at the TOP
-				posX = anchorPt.X - w/2
-				posY = iconRect.Bottom + margin
-			} else if rcTaskbar.Left > monArea.Left+monArea.Width()/2 {
-				// Taskbar is at the RIGHT
-				posX = iconRect.Left - w - margin
-				posY = anchorPt.Y - h/2
-			} else {
-				// Taskbar is at the LEFT
-				posX = iconRect.Right + margin
-				posY = anchorPt.Y - h/2
-			}
-		} else {
-			posX = anchorPt.X - w/2
-			posY = iconRect.Top - h - margin
-		}
-	} else if hasTaskbar && rcTaskbar.Bottom > monArea.Top && rcTaskbar.Top < monArea.Bottom {
-		if rcTaskbar.Top > monArea.Top+monArea.Height()/2 {
-			// Taskbar is at the BOTTOM
-			posX = anchorPt.X - w/2
-			posY = rcTaskbar.Top - h - margin
-		} else if rcTaskbar.Bottom <= monArea.Top+monArea.Height()/2 {
-			// Taskbar is at the TOP
-			posX = anchorPt.X - w/2
-			posY = rcTaskbar.Bottom + margin
-		} else if rcTaskbar.Left > monArea.Left+monArea.Width()/2 {
-			// Taskbar is at the RIGHT
-			posX = rcTaskbar.Left - w - margin
-			posY = anchorPt.Y - h/2
-		} else {
-			// Taskbar is at the LEFT
-			posX = rcTaskbar.Right + margin
-			posY = anchorPt.Y - h/2
-		}
-	} else if workArea.Bottom < monArea.Bottom {
-		posX = anchorPt.X - w/2
-		posY = workArea.Bottom - h - margin
-	} else if workArea.Top > monArea.Top {
-		posX = anchorPt.X - w/2
-		posY = workArea.Top + margin
-	} else if workArea.Left > monArea.Left {
-		posX = workArea.Left + margin
-		posY = anchorPt.Y - h/2
-	} else if workArea.Right < monArea.Right {
-		posX = workArea.Right - w - margin
-		posY = anchorPt.Y - h/2
-	} else {
-		posX = anchorPt.X - w/2
-		posY = monArea.Bottom - h - margin
-	}
-
-	// Strict clamping within this monitor's working area
-	if posX+w > workArea.Right-margin {
-		posX = workArea.Right - w - margin
-	}
-	if posX < workArea.Left+margin {
-		posX = workArea.Left + margin
-	}
-	if posY+h > workArea.Bottom-margin {
-		posY = workArea.Bottom - h - margin
-	}
-	if posY < workArea.Top+margin {
-		posY = workArea.Top + margin
-	}
-
+	posX, posY := winapi.CalculateFlyoutPosition(w, h, f.dpi, fallbackPt)
 	winapi.SetWindowPos(f.hwnd, winapi.HWND_TOPMOST, posX, posY, w, h, winapi.SWP_SHOWWINDOW)
 }
 
