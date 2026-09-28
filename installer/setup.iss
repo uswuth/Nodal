@@ -17,7 +17,7 @@
   #define MyAppVersionFull "1.0.0.0"
 #endif
 #define MyAppPublisher "Nodal Open Source Project"
-#define MyAppURL "https://github.com/nodal/dns-switcher"
+#define MyAppURL "https://github.com/uswuth/Nodal"
 #define MyAppExeName "nodal.exe"
 #define MyAppDescription "Native Windows 11 DNS Switcher"
 

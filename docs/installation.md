@@ -22,7 +22,7 @@ installed or changed silently, and no personal data leaves your machine.
 
 ## Stage 1 — Download from the repository
 
-1. Open the source repository: <https://github.com/nodal/dns-switcher>
+1. Open the source repository: <https://github.com/uswuth/Nodal>
 2. Go to **Releases** and pick the newest stable release.
 3. Download either:
    - `Nodal-Setup-<version>.exe` — the guided installer (recommended), or
@@ -113,11 +113,11 @@ Removal is covered at the end of this guide: [Uninstall](#uninstall).
 
 ## Stage 8 — Build and verify from source (optional)
 
-Requires Go 1.21+ and, for the installer, Inno Setup 6.3+.
+Requires Go 1.21+ and, for the installer, Inno Setup 6.3+ (`winget install -e --id JRSoftware.InnoSetup`).
 
 ```powershell
-git clone https://github.com/nodal/dns-switcher
-cd dns-switcher
+git clone https://github.com/uswuth/Nodal
+cd Nodal
 
 # Publisher metadata (goversioninfo + cmd\nodal\versioninfo.json -> resource.syso)
 go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
@@ -147,6 +147,7 @@ Confirm the embedded publisher metadata after any build:
 | Installer refuses to start | Requires Windows 10/11 x64. `MinVersion=10.0` blocks older systems. |
 | "Another version of this product is already installed" | Use *Settings → Apps* to remove the old entry, then re-run the installer. |
 | No tray icon after launching | The icon may be in the hidden-icons overflow area of the taskbar. Launching Nodal twice exits immediately by design (single-instance guard). |
+| Double-clicking `nodal.exe` shows nothing | Expected — `nodal.exe` is the portable application (a tray utility), not the installer. No window appears; find the icon in the tray overflow next to the clock. The setup wizard only comes from `Nodal-Setup-<version>.exe`. |
 | DNS switch fails with an elevation error | Approve the UAC prompt so the privileged worker task can be registered, or reinstall with the all-users option and accept the elevation prompt. |
 | Publisher missing in file properties | The build ran without `goversioninfo`. Run `go generate ./cmd/nodal` before `go build` (see Stage 8). |
 | Antivirus flags the executable | Uncommon but reported for unsigned Go binaries. The source is public; build it yourself (Stage 8) and compare the hash, or add an exclusion. |

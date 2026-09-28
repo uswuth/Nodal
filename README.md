@@ -43,7 +43,7 @@
 
 ## Install
 
-Download the installer from [Releases](https://github.com/nodal/dns-switcher/releases) and run it —
+Download the installer from [Releases](https://github.com/uswuth/Nodal/releases) and run it —
 a portable build ships alongside it. Every stage, checksum verification and unattended switch:
 [Installation guide](docs/installation.md).
 

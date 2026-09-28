@@ -3,7 +3,7 @@
 **Effective Date:** September 2026  
 **Product:** Nodal  
 **Publisher:** Nodal Open Source Project  
-**Contact / Repository:** https://github.com/nodal/dns-switcher
+**Contact / Repository:** https://github.com/uswuth/Nodal
 
 ---
 
@@ -57,4 +57,4 @@ Every uninstall path also hands DNS back to Windows: `nodal.exe --reset-dns` cle
 Any change is published in the source repository with a new effective date. The current version is always the one bundled in the newest release.
 
 ## 8. Contact
-Privacy or safety questions: open an issue at https://github.com/nodal/dns-switcher/issues.
+Privacy or safety questions: open an issue at https://github.com/uswuth/Nodal/issues.

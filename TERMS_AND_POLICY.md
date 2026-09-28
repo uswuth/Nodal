@@ -7,8 +7,8 @@
 | Application name | Nodal |
 | Product description | Native Windows DNS Switcher (system tray utility) |
 | Publisher / Vendor | Nodal Open Source Project |
-| Publisher website / source repository | https://github.com/nodal/dns-switcher |
-| Support & bug reports | https://github.com/nodal/dns-switcher/issues |
+| Publisher website / source repository | https://github.com/uswuth/Nodal |
+| Support & bug reports | https://github.com/uswuth/Nodal/issues |
 | Product version | 1.0.0 |
 | Price | Free of charge — no cost, no subscription, no trial, no license key |
 | License | MIT License (Free and Open Source Software) |
@@ -69,4 +69,4 @@ Windows, Win32, WinUI, Cloudflare, AdGuard, Quad9, NextDNS and all other product
 Any revision of this document is published in the repository with an updated "Last Updated" date. Because Nodal collects no contact information, continued use of a newer release constitutes acceptance of the revised terms. If you do not accept a revision, uninstall the Software (see `docs/installation.md`).
 
 ### 10. Contact
-Questions about licensing, terms, or consumer rights: open an issue at https://github.com/nodal/dns-switcher/issues.
+Questions about licensing, terms, or consumer rights: open an issue at https://github.com/uswuth/Nodal/issues.
