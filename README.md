@@ -1,10 +1,13 @@
 <p align="center">
-  <img src="./dns-nodal-logo.svg" width="96" alt="Nodal logo" />
+  <img src="./dns-nodal-logo.svg" width="100" alt="Nodal" />
 </p>
 
-<h1 align="center">Nodal</h1>
+<h1 align="center" style="font-size:2rem;font-weight:700;margin-bottom:0.25rem;">Nodal</h1>
 
-<p align="center"><b>Your DNS, switched in one click — right from the tray.</b><br/>Native Windows. No dashboard. No account. No telemetry. Free forever.</p>
+<p align="center" style="color:#555;font-size:1.1rem;max-width:600px;margin:0 auto 1.5rem;">
+  Your DNS, switched in one click — right from the tray.<br/>
+  Native Windows. No dashboard. No account. No telemetry. Free forever.
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-11-0F6CBD?style=flat-square&logo=windows11&logoColor=white" alt="Windows 11" />
@@ -18,16 +21,22 @@
 
 ## Preview
 
-**Dark mode** — tray menu · flyout
+**Dark mode**
 
 <p align="center">
-  <img src="docs/images/preview-dark-flyout.png" width="90%" alt="Nodal flyout — dark mode" />
+  <picture>
+    <source srcset="docs/images/preview-dark-flyout.webp" type="image/webp">
+    <img src="docs/images/preview-dark-flyout.png" alt="Nodal flyout — dark mode" style="max-width:520px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.12);" />
+  </picture>
 </p>
 
-**Light mode** — tray menu · flyout
+**Light mode**
 
 <p align="center">
-  <img src="docs/images/preview-light-flyout.png" width="90%" alt="Nodal flyout — light mode" />
+  <picture>
+    <source srcset="docs/images/preview-light-flyout.webp" type="image/webp">
+    <img src="docs/images/preview-light-flyout.png" alt="Nodal flyout — light mode" style="max-width:520px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.12);" />
+  </picture>
 </p>
 
 ## Why Nodal
