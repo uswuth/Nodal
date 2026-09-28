@@ -1,52 +1,69 @@
-<p align="center">
-  <img src="./dns-nodal-logo.svg" width="100" alt="Nodal" />
-</p>
+<div class="hero">
+  <img class="hero-img" src="{{ '/dns-nodal-logo.svg' | relative_url }}" width="100" alt="Nodal" />
+  <h1>Nodal</h1>
+  <p class="subtitle">
+    Your DNS, switched in one click — right from the tray.<br/>
+    Native Windows. No dashboard. No account. No telemetry. Free forever.
+  </p>
+</div>
 
-<h1 align="center" style="font-size:2rem;font-weight:700;margin-bottom:0.25rem;">Nodal</h1>
-
-<p align="center" style="color:#555;font-size:1.1rem;max-width:600px;margin:0 auto 1.5rem;">
-  Your DNS, switched in one click — right from the tray.<br/>
-  Native Windows. No dashboard. No account. No telemetry. Free forever.
-</p>
-
-<p align="center">
+<div class="badge-row">
   <img src="https://img.shields.io/badge/Windows-11-0F6CBD?style=flat-square&logo=windows11&logoColor=white" alt="Windows 11" />
   <img src="https://img.shields.io/badge/Go-1.21-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go" />
-  <img src="https://img.shields.io/badge/tray-native Win32-e8792e?style=flat-square" alt="native tray" />
+  <img src="https://img.shields.io/badge/tray-native%20Win32-e8792e?style=flat-square" alt="native tray" />
   <img src="https://img.shields.io/badge/idle-%3C5_MB_RAM-3BA0F2?style=flat-square" alt="lightweight" />
   <img src="https://img.shields.io/badge/switch-%3C1s-22c55e?style=flat-square" alt="fast switch" />
-</p>
+</div>
 
 ---
 
 ## Preview
 
-**Dark mode**
-
-<p align="center">
-  <picture>
-    <source srcset="docs/images/preview-dark-flyout.webp" type="image/webp">
-    <img src="docs/images/preview-dark-flyout.png" alt="Nodal flyout — dark mode" style="max-width:520px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.12);" />
-  </picture>
-</p>
-
-**Light mode**
-
-<p align="center">
-  <picture>
-    <source srcset="docs/images/preview-light-flyout.webp" type="image/webp">
-    <img src="docs/images/preview-light-flyout.png" alt="Nodal flyout — light mode" style="max-width:520px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.12);" />
-  </picture>
-</p>
+<div class="preview-grid">
+  <div class="preview-card">
+    <h3>Dark mode</h3>
+    <picture>
+      <source srcset="{{ '/docs/images/preview-dark-flyout.webp' | relative_url }}" type="image/webp">
+      <img src="{{ '/docs/images/preview-dark-flyout.png' | relative_url }}" alt="Nodal flyout — dark mode" class="inline-img" />
+    </picture>
+  </div>
+  <div class="preview-card">
+    <h3>Light mode</h3>
+    <picture>
+      <source srcset="{{ '/docs/images/preview-light-flyout.webp' | relative_url }}" type="image/webp">
+      <img src="{{ '/docs/images/preview-light-flyout.png' | relative_url }}" alt="Nodal flyout — light mode" class="inline-img" />
+    </picture>
+  </div>
+</div>
 
 ## Why Nodal
 
-- **One click** — switch resolvers straight from the tray; Windows Settings never opens.
-- **Native Win32** — dark/light and accent aware. No Electron, no web views, no runtimes.
-- **Silent privilege** — approve elevation once; every later switch runs without prompts.
-- **Zero footprint** — no drivers, no services, no telemetry, no network requests of its own.
-- **Clean uninstall** — one tray action reverses every change Nodal ever made.
-- **Featherweight** — one self-contained executable, under 5 MB idle.
+<div class="feature-grid">
+  <div class="feature-card">
+    <h3>One click</h3>
+    <p>Switch resolvers straight from the tray; Windows Settings never opens.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Native Win32</h3>
+    <p>Dark/light and accent aware. No Electron, no web views, no runtimes.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Silent privilege</h3>
+    <p>Approve elevation once; every later switch runs without prompts.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Zero footprint</h3>
+    <p>No drivers, no services, no telemetry, no network requests of its own.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Clean uninstall</h3>
+    <p>One tray action reverses every change Nodal ever made.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Featherweight</h3>
+    <p>One self-contained executable, under 5 MB idle.</p>
+  </div>
+</div>
 
 ## Install
 
@@ -67,12 +84,14 @@ documented: [Configuration](docs/configuration.md).
 
 ## Product identity
 
-| | |
-| --- | --- |
-| **Publisher** | Nodal Open Source Project |
-| **Price** | Free of charge — no subscription, no trial, no license key, no account |
-| **License** | MIT |
-| **Platform** | Windows 10 / 11, 64-bit |
+<table>
+  <tbody>
+    <tr><th>Publisher</th><td>Nodal Open Source Project</td></tr>
+    <tr><th>Price</th><td>Free of charge — no subscription, no trial, no license key, no account</td></tr>
+    <tr><th>License</th><td>MIT</td></tr>
+    <tr><th>Platform</th><td>Windows 10 / 11, 64-bit</td></tr>
+  </tbody>
+</table>
 
 ## Policies
 
@@ -82,4 +101,11 @@ machine.
 - [Privacy Policy](PRIVACY_POLICY.md) — what stays local, what is never collected, how to erase everything
 - [Terms of Service & EULA](TERMS_AND_POLICY.md) — system rights, warranty disclaimer, third-party notices
 - [DNS Directory](docs/dns-guide.md) — curated resolvers ready to paste into a custom profile
+
+---
+
+<div class="site-footer">
+  Built with [Go](https://go.dev/) · Distributed under the [MIT License](LICENSE) ·
+  <a href="https://github.com/uswuth/Nodal">Source on GitHub</a>
+</div>
 
