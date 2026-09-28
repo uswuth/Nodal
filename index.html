@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nodal — DNS Switcher for Windows</title>
+  <meta name="description" content="Native Windows 11 DNS Switcher — switch resolvers in one click from the system tray. Free, open source, no telemetry.">
+  <meta name="theme-color" content="#0F6CBD">
+  <link rel="icon" type="image/svg+xml" href="dns-nodal-logo.svg">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#top" class="logo-link" aria-label="Nodal home">
+        <img src="dns-nodal-logo.svg" alt="Nodal logo" class="site-logo" width="36" height="36">
+      </a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a href="#preview">Preview</a>
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="#docs">Docs</a>
+        <a href="https://github.com/uswuth/Nodal/releases" class="btn-primary">Download</a>
+      </nav>
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-content">
+        <img src="dns-nodal-logo.svg" alt="Nodal" class="hero-logo" width="120" height="120">
+        <h1 class="hero-title">Nodal</h1>
+        <p class="hero-subtitle">
+          Your DNS, switched in one click — right from the tray.<br>
+          Native Windows. No dashboard. No account. No telemetry. Free forever.
+        </p>
+        <div class="hero-badges">
+          <span class="badge"><img src="https://img.shields.io/badge/Windows-11-0F6CBD?style=flat-square&logo=windows11&logoColor=white" alt="Windows 11"></span>
+          <span class="badge"><img src="https://img.shields.io/badge/Go-1.21-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go"></span>
+          <span class="badge"><img src="https://img.shields.io/badge/tray-native%20Win32-e8792e?style=flat-square" alt="native tray"></span>
+          <span class="badge"><img src="https://img.shields.io/badge/idle-%3C5_MB_RAM-3BA0F2?style=flat-square" alt="lightweight"></span>
+          <span class="badge"><img src="https://img.shields.io/badge/switch-%3C1s-22c55e?style=flat-square" alt="fast switch"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="preview-section" id="preview">
+      <h2 class="section-title">Preview</h2>
+      <div class="preview-grid">
+        <div class="preview-card">
+          <div class="card-label">Dark mode</div>
+          <div class="preview-image-wrap">
+            <picture>
+              <source srcset="docs/images/preview-dark-flyout.webp" type="image/webp">
+              <img src="docs/images/preview-dark-flyout.png" alt="Nodal flyout — dark mode" class="preview-img" loading="lazy">
+            </picture>
+          </div>
+        </div>
+        <div class="preview-card">
+          <div class="card-label">Light mode</div>
+          <div class="preview-image-wrap">
+            <picture>
+              <source srcset="docs/images/preview-light-flyout.webp" type="image/webp" type="image/webp">
+              <img src="docs/images/preview-light-flyout.png" alt="Nodal flyout — light mode" class="preview-img" loading="lazy">
+            </picture>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features-section" id="features">
+      <h2 class="section-title">Why Nodal</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>One click</h3>
+          <p>Switch resolvers straight from the tray; Windows Settings never opens.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3>Native Win32</h3>
+          <p>Dark/light and accent aware. No Electron, no web views, no runtimes.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3>Silent privilege</h3>
+          <p>Approve elevation once; every later switch runs without prompts.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">✦</div>
+          <h3>Zero footprint</h3>
+          <p>No drivers, no services, no telemetry, no network requests of its own.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🧹</div>
+          <h3>Clean uninstall</h3>
+          <p>One tray action reverses every change Nodal ever made.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🪶</div>
+          <h3>Featherweight</h3>
+          <p>One self-contained executable, under 5 MB idle.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="install-section" id="install">
+      <h2 class="section-title">Install</h2>
+      <div class="install-card">
+        <div class="install-text">
+          <p>Download the installer from <a href="https://github.com/uswuth/Nodal/releases">Releases</a> and run it — a portable build ships alongside it.</p>
+          <p>Every stage, checksum verification and unattended switch are documented in the <a href="docs/installation.md">Installation guide</a>.</p>
+        </div>
+        <a href="https://github.com/uswuth/Nodal/releases" class="btn-large">
+          Download Nodal
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+    </section>
+
+    <section class="docs-section" id="docs">
+      <h2 class="section-title">Uninstall</h2>
+      <div class="info-card">
+        <p>Right-click the tray icon → <strong>Clean uninstall</strong>. Automatic DNS is restored on every adapter, the scheduled task, startup entry, presets and the app itself are removed — nothing else on the PC is touched.</p>
+        <a href="docs/installation.md#uninstall" class="link-arrow">Read uninstall docs →</a>
+      </div>
+
+      <h2 class="section-title">Configuration</h2>
+      <div class="info-card">
+        <p>Presets, theme and privacy behaviour are driven by one local file — every key, type and constraint documented in the <a href="docs/configuration.md">Configuration guide</a>.</p>
+      </div>
+    </section>
+
+    <section class="meta-section">
+      <h2 class="section-title">Product identity</h2>
+      <table class="meta-table">
+        <tbody>
+          <tr><th>Publisher</th><td>Nodal Open Source Project</td></tr>
+          <tr><th>Price</th><td>Free of charge — no subscription, no trial, no license key, no account</td></tr>
+          <tr><th>License</th><td><a href="LICENSE">MIT</a></td></tr>
+          <tr><th>Platform</th><td>Windows 10 / 11, 64-bit</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="policies-section">
+      <h2 class="section-title">Policies</h2>
+      <p>Nodal contains no telemetry and makes no network requests of its own — all data stays on your machine.</p>
+      <div class="policy-links">
+        <a href="PRIVACY_POLICY.md">Privacy Policy</a>
+        <a href="TERMS_AND_POLICY.md">Terms of Service &amp; EULA</a>
+        <a href="docs/dns-guide.md">DNS Directory</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p>Built with <a href="https://go.dev/">Go</a> · Distributed under the <a href="LICENSE">MIT License</a> · <a href="https://github.com/uswuth/Nodal">Source on GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>
